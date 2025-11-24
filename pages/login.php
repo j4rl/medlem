@@ -2,6 +2,9 @@
 require_once __DIR__ . '/../includes/i18n.php';
 require_once __DIR__ . '/../includes/auth.php';
 
+// Handle language change
+handleLanguageChange();
+
 // Redirect if already logged in
 if (isLoggedIn()) {
     header('Location: dashboard.php');
@@ -83,11 +86,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="/assets/js/app.js"></script>
 </body>
 </html>
-<?php
-// Handle language change
-if (isset($_GET['lang'])) {
-    changeLanguage($_GET['lang']);
-    header('Location: login.php');
-    exit();
-}
-?>

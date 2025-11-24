@@ -104,4 +104,8 @@ return [
     'no_cases' => 'No cases to display',
     'confirm_delete_case' => 'Are you sure you want to delete this case?',
     'details' => 'Details',
+    'no_comments_yet' => 'No comments yet',
+    'username_immutable' => 'Username cannot be changed',
+    'error_invalid_file_type' => 'Only JPG, JPEG, PNG, and GIF files are allowed',
+    'error_file_too_large' => 'File size must be less than 5MB',
 ];

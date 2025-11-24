@@ -38,9 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         
         if (!in_array($ext, $allowed)) {
-            $error = 'Only JPG, JPEG, PNG, and GIF files are allowed.';
+            $error = __('error_invalid_file_type');
         } elseif ($filesize > 5 * 1024 * 1024) {
-            $error = 'File size must be less than 5MB.';
+            $error = __('error_file_too_large');
         } else {
             $newFilename = 'profile_' . $user['id'] . '_' . time() . '.' . $ext;
             $uploadPath = __DIR__ . '/../assets/uploads/profiles/' . $newFilename;
@@ -127,7 +127,7 @@ include __DIR__ . '/../includes/header.php';
                             <label class="form-label"><?php echo __('username'); ?></label>
                             <input type="text" class="form-input" readonly 
                                    value="<?php echo htmlspecialchars($user['username']); ?>">
-                            <small style="color: var(--text-secondary);">Username cannot be changed</small>
+                            <small style="color: var(--text-secondary);"><?php echo __('username_immutable'); ?></small>
                         </div>
                         
                         <button type="submit" name="update_profile" class="btn btn-primary">

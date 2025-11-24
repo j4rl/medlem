@@ -5,23 +5,19 @@ require_once __DIR__ . '/../config/database.php';
 function createCase($title, $description, $priority, $createdBy, $assignedTo = null) {
     $conn = getDBConnection();
     
-    // Generate case number
-    $caseNumber = 'CASE-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+    // Generate case number - get last case number and increment
+    $year = date('Y');
+    $result = $conn->query("SELECT case_number FROM cases WHERE case_number LIKE 'CASE-{$year}-%' ORDER BY id DESC LIMIT 1");
     
-    // Check if case number exists
-    $stmt = $conn->prepare("SELECT id FROM cases WHERE case_number = ?");
-    $stmt->bind_param("s", $caseNumber);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    while ($result->num_rows > 0) {
-        $caseNumber = 'CASE-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-        $stmt = $conn->prepare("SELECT id FROM cases WHERE case_number = ?");
-        $stmt->bind_param("s", $caseNumber);
-        $stmt->execute();
-        $result = $stmt->get_result();
+    if ($result && $result->num_rows > 0) {
+        $lastCase = $result->fetch_assoc();
+        $lastNumber = (int)substr($lastCase['case_number'], -4);
+        $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+    } else {
+        $newNumber = '0001';
     }
-    $stmt->close();
+    
+    $caseNumber = 'CASE-' . $year . '-' . $newNumber;
     
     // Insert case
     if ($assignedTo) {

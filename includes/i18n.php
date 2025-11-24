@@ -49,4 +49,15 @@ function changeLanguage($lang) {
 function getCurrentLanguage() {
     return $_SESSION['language'] ?? 'sv';
 }
+
+// Handle language change from GET parameter
+function handleLanguageChange() {
+    if (isset($_GET['lang'])) {
+        changeLanguage($_GET['lang']);
+        // Redirect to remove the lang parameter
+        $uri = strtok($_SERVER['REQUEST_URI'], '?');
+        header('Location: ' . $uri);
+        exit();
+    }
+}
 ?>

@@ -104,4 +104,8 @@ return [
     'no_cases' => 'Inga ärenden att visa',
     'confirm_delete_case' => 'Är du säker på att du vill ta bort detta ärende?',
     'details' => 'Detaljer',
+    'no_comments_yet' => 'Inga kommentarer än',
+    'username_immutable' => 'Användarnamn kan inte ändras',
+    'error_invalid_file_type' => 'Endast JPG, JPEG, PNG och GIF-filer är tillåtna',
+    'error_file_too_large' => 'Filstorleken måste vara mindre än 5MB',
 ];
