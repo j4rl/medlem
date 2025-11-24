@@ -1,0 +1,57 @@
+# Enable rewrite engine
+RewriteEngine On
+
+# Redirect to HTTPS (optional, uncomment if you have SSL)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Protect config directory
+<FilesMatch "database\.php">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect includes directory from direct access
+<Files ~ "\.php$">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# But allow includes to be accessed from PHP
+<FilesMatch "^(header|footer|i18n|auth|cases|user|api)\.php$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Set default charset
+AddDefaultCharset UTF-8
+
+# Prevent directory listing
+Options -Indexes
+
+# Custom error pages (optional)
+# ErrorDocument 404 /pages/404.php
+# ErrorDocument 500 /pages/500.php
+
+# Security headers
+<IfModule mod_headers.c>
+    # Prevent clickjacking
+    Header set X-Frame-Options "SAMEORIGIN"
+    
+    # XSS protection
+    Header set X-XSS-Protection "1; mode=block"
+    
+    # Prevent MIME sniffing
+    Header set X-Content-Type-Options "nosniff"
+    
+    # Referrer policy
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# PHP settings (if allowed)
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 5M
+    php_value post_max_size 5M
+    php_value max_execution_time 30
+    php_value max_input_time 30
+</IfModule>
