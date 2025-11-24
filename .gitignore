@@ -1,0 +1,23 @@
+# Uploaded files
+assets/uploads/profiles/*
+!assets/uploads/profiles/.gitkeep
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# PHP
+composer.phar
+vendor/
