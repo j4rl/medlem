@@ -1,0 +1,111 @@
+<?php
+// English translations
+return [
+    // General
+    'app_name' => 'Case Management System',
+    'welcome' => 'Welcome',
+    'home' => 'Home',
+    'logout' => 'Logout',
+    'login' => 'Login',
+    'register' => 'Register',
+    'save' => 'Save',
+    'cancel' => 'Cancel',
+    'delete' => 'Delete',
+    'edit' => 'Edit',
+    'search' => 'Search',
+    'filter' => 'Filter',
+    'back' => 'Back',
+    'close' => 'Close',
+    'submit' => 'Submit',
+    
+    // Authentication
+    'username' => 'Username',
+    'email' => 'Email',
+    'password' => 'Password',
+    'confirm_password' => 'Confirm Password',
+    'full_name' => 'Full Name',
+    'login_title' => 'Login',
+    'register_title' => 'Create Account',
+    'forgot_password' => 'Forgot Password?',
+    'remember_me' => 'Remember Me',
+    'already_have_account' => 'Already have an account?',
+    'dont_have_account' => 'Don\'t have an account?',
+    
+    // Profile
+    'profile' => 'Profile',
+    'my_profile' => 'My Profile',
+    'edit_profile' => 'Edit Profile',
+    'profile_picture' => 'Profile Picture',
+    'change_picture' => 'Change Picture',
+    'settings' => 'Settings',
+    'appearance' => 'Appearance',
+    'theme' => 'Theme',
+    'light_mode' => 'Light Mode',
+    'dark_mode' => 'Dark Mode',
+    'primary_color' => 'Primary Color',
+    'language' => 'Language',
+    
+    // Cases
+    'cases' => 'Cases',
+    'case' => 'Case',
+    'my_cases' => 'My Cases',
+    'all_cases' => 'All Cases',
+    'new_case' => 'New Case',
+    'create_case' => 'Create Case',
+    'case_number' => 'Case Number',
+    'title' => 'Title',
+    'description' => 'Description',
+    'status' => 'Status',
+    'priority' => 'Priority',
+    'assigned_to' => 'Assigned To',
+    'created_by' => 'Created By',
+    'created_at' => 'Created',
+    'updated_at' => 'Updated',
+    'resolved_at' => 'Resolved',
+    
+    // Status
+    'status_new' => 'New',
+    'status_in_progress' => 'In Progress',
+    'status_resolved' => 'Resolved',
+    'status_closed' => 'Closed',
+    
+    // Priority
+    'priority_low' => 'Low',
+    'priority_medium' => 'Medium',
+    'priority_high' => 'High',
+    'priority_urgent' => 'Urgent',
+    
+    // Comments
+    'comments' => 'Comments',
+    'add_comment' => 'Add Comment',
+    'comment' => 'Comment',
+    
+    // Messages
+    'success_login' => 'Successfully logged in!',
+    'success_register' => 'Account created! You can now login.',
+    'success_update' => 'Updated successfully!',
+    'success_create' => 'Created successfully!',
+    'success_delete' => 'Deleted successfully!',
+    'error_login' => 'Invalid username or password',
+    'error_general' => 'An error occurred. Please try again.',
+    'error_required' => 'This field is required',
+    'error_email_invalid' => 'Invalid email address',
+    'error_password_mismatch' => 'Passwords do not match',
+    'error_username_taken' => 'Username is already taken',
+    'error_email_taken' => 'Email is already in use',
+    
+    // Dashboard
+    'dashboard' => 'Dashboard',
+    'statistics' => 'Statistics',
+    'total_cases' => 'Total Cases',
+    'open_cases' => 'Open Cases',
+    'resolved_cases' => 'Resolved Cases',
+    'my_open_cases' => 'My Open Cases',
+    'no_cases' => 'No cases to display',
+    'confirm_delete_case' => 'Are you sure you want to delete this case?',
+    'details' => 'Details',
+    'no_comments_yet' => 'No comments yet',
+    'username_immutable' => 'Username cannot be changed',
+    'error_invalid_file_type' => 'Only JPG, JPEG, PNG, and GIF files are allowed',
+    'error_file_too_large' => 'File size must be less than 5MB',
+];
