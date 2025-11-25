@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Installation - Medlem</title>
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <?php require_once __DIR__ . '/config/config.php'; ?>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
 </head>
 <body>
     <div class="auth-container">
@@ -26,7 +27,7 @@
                     if ($conn) {
                         $canConnect = true;
                         // Check if tables exist
-                        $result = $conn->query("SHOW TABLES LIKE 'users'");
+                        $result = $conn->query("SHOW TABLES LIKE 'tbl_users'");
                         $dbExists = $result && $result->num_rows > 0;
                         closeDBConnection($conn);
                     }

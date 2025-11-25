@@ -1,6 +1,8 @@
 <?php
 // i18n helper functions
-session_start();
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 // Set default language
 if (!isset($_SESSION['language'])) {

@@ -2,50 +2,66 @@
 CREATE DATABASE IF NOT EXISTS medlem_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE medlem_db;
 
--- Users table
-CREATE TABLE IF NOT EXISTS users (
+-- Users table (matches tbl_users from medlem_db.sql)
+CREATE TABLE IF NOT EXISTS tbl_users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    profile_picture VARCHAR(255) DEFAULT 'default.png',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone VARCHAR(100) NOT NULL DEFAULT '',
+    pic VARCHAR(255) NOT NULL DEFAULT 'default.png',
+    lang VARCHAR(5) NOT NULL DEFAULT 'sv',
+    colorscheme INT NOT NULL DEFAULT 1,
+    last_login TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    userlevel INT NOT NULL DEFAULT 10,
+    role ENUM('Admin','Användare') NOT NULL DEFAULT 'Användare',
     INDEX idx_username (username),
     INDEX idx_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- User settings table
+-- Optional user settings (themes)
 CREATE TABLE IF NOT EXISTS user_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     theme_mode VARCHAR(20) DEFAULT 'light',
     primary_color VARCHAR(20) DEFAULT '#2563eb',
     language VARCHAR(10) DEFAULT 'sv',
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES tbl_users(id) ON DELETE CASCADE,
     UNIQUE KEY unique_user_settings (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Cases table
-CREATE TABLE IF NOT EXISTS cases (
+-- Cases table (Twofish payloads stored as BLOB/JSON)
+CREATE TABLE IF NOT EXISTS tbl_cases (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    case_number VARCHAR(50) UNIQUE NOT NULL,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    status ENUM('new', 'in_progress', 'resolved', 'closed') DEFAULT 'new',
-    priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
-    created_by INT NOT NULL,
-    assigned_to INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    resolved_at TIMESTAMP NULL,
-    FOREIGN KEY (created_by) REFERENCES users(id),
-    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_case_number (case_number),
-    INDEX idx_status (status),
-    INDEX idx_created_by (created_by),
-    INDEX idx_assigned_to (assigned_to)
+    user_id INT NOT NULL,
+    changed TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    caseheader BLOB NOT NULL COMMENT 'Twofish-encrypted data',
+    taker_id INT NULL,
+    member_data MEDIUMBLOB NOT NULL COMMENT 'Twofish-encrypted member snapshot (JSON before encryption)',
+    case_data MEDIUMBLOB NOT NULL COMMENT 'Twofish-encrypted case JSON payload',
+    status ENUM('new','in_progress','resolved','closed','reopened') NOT NULL DEFAULT 'new',
+    prio ENUM('low','medium','high','urgent','none') NOT NULL DEFAULT 'medium',
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES tbl_users(id),
+    FOREIGN KEY (taker_id) REFERENCES tbl_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Members table (encrypted columns stored as BLOB Twofish ciphertext)
+CREATE TABLE IF NOT EXISTS tbl_members (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    namn BLOB NOT NULL COMMENT 'Twofish-encrypted member name',
+    medlnr INT NOT NULL COMMENT 'Membership number',
+    fodelsedatum BLOB DEFAULT NULL COMMENT 'Twofish-encrypted birth date (YYYY-MM-DD)',
+    primar_forening BLOB DEFAULT NULL COMMENT 'Twofish-encrypted primary union/association',
+    medlemsform TEXT NOT NULL,
+    primar_verksamhetsform BLOB DEFAULT NULL COMMENT 'Twofish-encrypted primary line of work',
+    skolform TEXT NOT NULL,
+    arbetsplats TEXT NOT NULL,
+    arbetsgivare TEXT NOT NULL,
+    befattning TEXT NOT NULL,
+    link TEXT NOT NULL,
+    UNIQUE KEY uniq_medlnr (medlnr)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Case comments table
@@ -55,15 +71,12 @@ CREATE TABLE IF NOT EXISTS case_comments (
     user_id INT NOT NULL,
     comment TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (case_id) REFERENCES tbl_cases(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES tbl_users(id),
     INDEX idx_case_id (case_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insert a default admin user (password: admin123)
-INSERT INTO users (username, email, password, full_name) 
-VALUES ('admin', 'admin@exempel.se', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrator');
-
--- Insert default settings for admin
-INSERT INTO user_settings (user_id, theme_mode, primary_color, language)
-VALUES (1, 'light', '#2563eb', 'sv');
+INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel, role) 
+VALUES ('admin', 'admin@exempel.se', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrator', '', 'default.png', 'sv', 1, 10, 'Admin')
+ON DUPLICATE KEY UPDATE username=username;

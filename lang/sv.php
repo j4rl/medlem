@@ -101,6 +101,10 @@ return [
     'open_cases' => 'Öppna ärenden',
     'resolved_cases' => 'Lösta ärenden',
     'my_open_cases' => 'Mina öppna ärenden',
+    'submitted_cases' => 'Mina inskickade',
+    'assigned_cases' => 'Tilldelade till mig',
+    'case_stats_mine' => 'Min statistik',
+    'case_stats_overall' => 'Totalt i organisationen',
     'no_cases' => 'Inga ärenden att visa',
     'confirm_delete_case' => 'Är du säker på att du vill ta bort detta ärende?',
     'details' => 'Detaljer',
@@ -108,4 +112,15 @@ return [
     'username_immutable' => 'Användarnamn kan inte ändras',
     'error_invalid_file_type' => 'Endast JPG, JPEG, PNG och GIF-filer är tillåtna',
     'error_file_too_large' => 'Filstorleken måste vara mindre än 5MB',
+    
+    // Case form (structured)
+    'received_at' => 'Mottaget (datum/tid)',
+    'recipient' => 'Mottagare (vem skrev in ärendet?)',
+    'handler' => 'Lämplig handläggare',
+    'member_lookup' => 'Medlemsnummer / ID',
+    'fetch_member' => 'Hämta medlemsdata',
+    'member_data' => 'Medlemsdata',
+    'case_body' => 'Ärende',
+    'case_data_json' => 'Ärendedata (JSON)',
+    'last_edited_at' => 'Senast ändrad',
 ];

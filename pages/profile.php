@@ -80,10 +80,10 @@ include __DIR__ . '/../includes/header.php';
                     <h2 class="card-header"><?php echo __('profile_picture'); ?></h2>
                     
                     <div class="profile-picture-container">
-                        <img src="/assets/uploads/profiles/<?php echo htmlspecialchars($user['profile_picture']); ?>" 
+                        <img src="<?php echo BASE_URL; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($user['profile_picture']); ?>" 
                              alt="<?php echo htmlspecialchars($user['full_name']); ?>" 
                              class="profile-picture-large" id="profilePreview"
-                             onerror="this.src='/assets/images/default.png'">
+                             onerror="this.src='<?php echo BASE_URL; ?>/assets/images/default.png'">
                     </div>
                     
                     <form method="POST" action="" enctype="multipart/form-data">

@@ -2,31 +2,39 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/auth.php';
 
-// Get user settings
+// Get user settings (fallback defaults; table is optional)
 function getUserSettings($userId) {
-    $conn = getDBConnection();
-    
-    $stmt = $conn->prepare("SELECT theme_mode, primary_color, language FROM user_settings WHERE user_id = ?");
-    $stmt->bind_param("i", $userId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $settings = $result->fetch_assoc();
-    
-    $stmt->close();
-    closeDBConnection($conn);
-    
-    // Return default settings if not found
-    return $settings ?: [
+    // Defaults
+    $defaults = [
         'theme_mode' => 'light',
         'primary_color' => '#2563eb',
         'language' => 'sv'
     ];
+
+    $conn = getDBConnection();
+    if ($conn->query("SHOW TABLES LIKE 'user_settings'")->num_rows === 0) {
+        closeDBConnection($conn);
+        return $defaults;
+    }
+
+    $stmt = $conn->prepare("SELECT theme_mode, primary_color, language FROM user_settings WHERE user_id = ?");
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $settings = $result->fetch_assoc();
+    $stmt->close();
+    closeDBConnection($conn);
+
+    return $settings ?: $defaults;
 }
 
-// Update user settings
+// Update user settings (no-op if table missing)
 function updateUserSettings($userId, $themeMode, $primaryColor, $language) {
     $conn = getDBConnection();
+    if ($conn->query("SHOW TABLES LIKE 'user_settings'")->num_rows === 0) {
+        closeDBConnection($conn);
+        return true;
+    }
     
     $stmt = $conn->prepare("UPDATE user_settings SET theme_mode = ?, primary_color = ?, language = ? WHERE user_id = ?");
     $stmt->bind_param("sssi", $themeMode, $primaryColor, $language, $userId);
@@ -43,7 +51,7 @@ function updateUserSettings($userId, $themeMode, $primaryColor, $language) {
 function updateProfilePicture($userId, $filename) {
     $conn = getDBConnection();
     
-    $stmt = $conn->prepare("UPDATE users SET profile_picture = ? WHERE id = ?");
+    $stmt = $conn->prepare("UPDATE tbl_users SET pic = ? WHERE id = ?");
     $stmt->bind_param("si", $filename, $userId);
     
     $success = $stmt->execute();
@@ -59,7 +67,7 @@ function updateUserProfile($userId, $fullName, $email) {
     $conn = getDBConnection();
     
     // Check if email is already used by another user
-    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
+    $stmt = $conn->prepare("SELECT id FROM tbl_users WHERE email = ? AND id != ?");
     $stmt->bind_param("si", $email, $userId);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -72,7 +80,7 @@ function updateUserProfile($userId, $fullName, $email) {
     $stmt->close();
     
     // Update user
-    $stmt = $conn->prepare("UPDATE users SET full_name = ?, email = ? WHERE id = ?");
+    $stmt = $conn->prepare("UPDATE tbl_users SET name = ?, email = ? WHERE id = ?");
     $stmt->bind_param("ssi", $fullName, $email, $userId);
     
     if ($stmt->execute()) {

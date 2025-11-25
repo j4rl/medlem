@@ -5,22 +5,13 @@ RewriteEngine On
 # RewriteCond %{HTTPS} off
 # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Protect config directory
-<FilesMatch "database\.php">
+# Block direct access to sensitive folders
+RewriteRule ^includes/ - [F,L]
+RewriteRule ^config/ - [F,L]
+# Explicitly block config/database.php in case rewrite is bypassed
+<FilesMatch "^config/database\.php$">
     Order allow,deny
     Deny from all
-</FilesMatch>
-
-# Protect includes directory from direct access
-<Files ~ "\.php$">
-    Order allow,deny
-    Deny from all
-</Files>
-
-# But allow includes to be accessed from PHP
-<FilesMatch "^(header|footer|i18n|auth|cases|user|api)\.php$">
-    Order allow,deny
-    Allow from all
 </FilesMatch>
 
 # Set default charset

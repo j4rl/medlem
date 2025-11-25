@@ -13,6 +13,20 @@ if (!$case) {
 }
 
 $comments = getCaseComments($caseId);
+$caseData = [];
+if (!empty($case['case_data'])) {
+    $decoded = json_decode($case['case_data'], true);
+    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        $caseData = $decoded;
+    }
+}
+$memberDataPretty = '';
+if (!empty($case['member_data'])) {
+    $decodedMember = json_decode($case['member_data'], true);
+    $memberDataPretty = json_last_error() === JSON_ERROR_NONE
+        ? json_encode($decodedMember, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        : $case['member_data'];
+}
 
 // Handle comment submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_comment'])) {
@@ -47,6 +61,35 @@ include __DIR__ . '/../includes/header.php';
                     <h2 class="card-header"><?php echo __('description'); ?></h2>
                     <p style="white-space: pre-wrap;"><?php echo htmlspecialchars($case['description']); ?></p>
                 </div>
+
+                <?php if (!empty($caseData)): ?>
+                <div class="card">
+                    <h2 class="card-header"><?php echo __('case_data_json'); ?></h2>
+                    <div class="meta-grid">
+                        <div>
+                            <strong><?php echo __('received_at'); ?>:</strong><br>
+                            <?php echo htmlspecialchars($caseData['received_at'] ?? '-'); ?>
+                        </div>
+                        <div>
+                            <strong><?php echo __('recipient'); ?>:</strong><br>
+                            <?php echo htmlspecialchars($caseData['recipient'] ?? '-'); ?>
+                        </div>
+                        <div>
+                            <strong><?php echo __('handler'); ?>:</strong><br>
+                            <?php echo htmlspecialchars($caseData['handler'] ?? '-'); ?>
+                        </div>
+                        <div>
+                            <strong><?php echo __('member_lookup'); ?>:</strong><br>
+                            <?php echo htmlspecialchars($caseData['member_lookup'] ?? '-'); ?>
+                        </div>
+                        <div>
+                            <strong><?php echo __('last_edited_at'); ?>:</strong><br>
+                            <?php echo htmlspecialchars($caseData['last_edited_at'] ?? '-'); ?>
+                        </div>
+                    </div>
+                    <pre class="code-block"><?php echo htmlspecialchars(json_encode($caseData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?></pre>
+                </div>
+                <?php endif; ?>
                 
                 <div class="card">
                     <h2 class="card-header"><?php echo __('comments'); ?></h2>
@@ -54,10 +97,10 @@ include __DIR__ . '/../includes/header.php';
                     <?php if (count($comments) > 0): ?>
                         <?php foreach ($comments as $comment): ?>
                         <div class="comment">
-                            <img src="/assets/uploads/profiles/<?php echo htmlspecialchars($comment['profile_picture']); ?>" 
+                            <img src="<?php echo BASE_URL; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($comment['profile_picture']); ?>" 
                                  alt="<?php echo htmlspecialchars($comment['full_name']); ?>" 
                                  class="comment-avatar"
-                                 onerror="this.src='/assets/images/default.png'">
+                                 onerror="this.src='<?php echo BASE_URL; ?>/assets/images/default.png'">
                             <div class="comment-content">
                                 <div class="comment-header">
                                     <span class="comment-author"><?php echo htmlspecialchars($comment['full_name']); ?></span>
@@ -84,6 +127,13 @@ include __DIR__ . '/../includes/header.php';
             </div>
             
             <div>
+                <?php if (!empty($memberDataPretty)): ?>
+                <div class="card">
+                    <h2 class="card-header"><?php echo __('member_data'); ?></h2>
+                    <pre class="code-block"><?php echo htmlspecialchars($memberDataPretty); ?></pre>
+                </div>
+                <?php endif; ?>
+
                 <div class="card">
                     <h2 class="card-header"><?php echo __('case'); ?> <?php echo __('details'); ?></h2>
                     
@@ -109,10 +159,10 @@ include __DIR__ . '/../includes/header.php';
                     <div style="margin-bottom: 1rem;">
                         <strong><?php echo __('created_by'); ?>:</strong><br>
                         <div class="flex gap-2" style="align-items: center; margin-top: 0.5rem;">
-                            <img src="/assets/uploads/profiles/<?php echo htmlspecialchars($case['creator_picture']); ?>" 
+                            <img src="<?php echo BASE_URL; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($case['creator_picture']); ?>" 
                                  alt="<?php echo htmlspecialchars($case['creator_name']); ?>" 
                                  style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;"
-                                 onerror="this.src='/assets/images/default.png'">
+                                 onerror="this.src='<?php echo BASE_URL; ?>/assets/images/default.png'">
                             <?php echo htmlspecialchars($case['creator_name']); ?>
                         </div>
                     </div>
@@ -121,10 +171,10 @@ include __DIR__ . '/../includes/header.php';
                     <div style="margin-bottom: 1rem;">
                         <strong><?php echo __('assigned_to'); ?>:</strong><br>
                         <div class="flex gap-2" style="align-items: center; margin-top: 0.5rem;">
-                            <img src="/assets/uploads/profiles/<?php echo htmlspecialchars($case['assignee_picture']); ?>" 
+                            <img src="<?php echo BASE_URL; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($case['assignee_picture']); ?>" 
                                  alt="<?php echo htmlspecialchars($case['assignee_name']); ?>" 
                                  style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;"
-                                 onerror="this.src='/assets/images/default.png'">
+                                 onerror="this.src='<?php echo BASE_URL; ?>/assets/images/default.png'">
                             <?php echo htmlspecialchars($case['assignee_name']); ?>
                         </div>
                     </div>

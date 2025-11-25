@@ -20,7 +20,7 @@ function getCurrentUser() {
     $conn = getDBConnection();
     $userId = $_SESSION['user_id'];
     
-    $stmt = $conn->prepare("SELECT id, username, email, full_name, profile_picture FROM users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT id, username, email, name AS full_name, pic AS profile_picture, lang FROM tbl_users WHERE id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -36,7 +36,7 @@ function getCurrentUser() {
 function loginUser($username, $password) {
     $conn = getDBConnection();
     
-    $stmt = $conn->prepare("SELECT id, username, password FROM users WHERE username = ?");
+    $stmt = $conn->prepare("SELECT id, username, password FROM tbl_users WHERE username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -60,11 +60,11 @@ function loginUser($username, $password) {
 }
 
 // Register user
-function registerUser($username, $email, $password, $fullName) {
+function registerUser($username, $email, $password, $fullName, $phone = '') {
     $conn = getDBConnection();
     
     // Check if username exists
-    $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
+    $stmt = $conn->prepare("SELECT id FROM tbl_users WHERE username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -77,7 +77,7 @@ function registerUser($username, $email, $password, $fullName) {
     $stmt->close();
     
     // Check if email exists
-    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT id FROM tbl_users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -93,19 +93,11 @@ function registerUser($username, $email, $password, $fullName) {
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
     
     // Insert user
-    $stmt = $conn->prepare("INSERT INTO users (username, email, password, full_name) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $username, $email, $hashedPassword, $fullName);
+    $stmt = $conn->prepare("INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel, role) VALUES (?, ?, ?, ?, ?, 'default.png', 'sv', 1, 10, 'Användare')");
+    $stmt->bind_param("sssss", $username, $email, $hashedPassword, $fullName, $phone);
     
     if ($stmt->execute()) {
-        $userId = $stmt->insert_id;
         $stmt->close();
-        
-        // Create default settings
-        $stmt = $conn->prepare("INSERT INTO user_settings (user_id) VALUES (?)");
-        $stmt->bind_param("i", $userId);
-        $stmt->execute();
-        $stmt->close();
-        
         closeDBConnection($conn);
         return ['success' => true];
     }
@@ -124,7 +116,8 @@ function logoutUser() {
 // Require login
 function requireLogin() {
     if (!isLoggedIn()) {
-        header('Location: /pages/login.php');
+        $base = defined('BASE_URL') ? BASE_URL : '';
+        header('Location: ' . rtrim($base, '/') . '/pages/login.php');
         exit();
     }
 }

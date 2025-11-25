@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/i18n.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/user.php';
@@ -11,9 +12,8 @@ $userSettings = null;
 if ($currentUser) {
     $userSettings = getUserSettings($currentUser['id']);
     // Set language from user settings
-    if (isset($userSettings['language'])) {
-        changeLanguage($userSettings['language']);
-    }
+    $lang = $userSettings['language'] ?? ($currentUser['lang'] ?? 'sv');
+    changeLanguage($lang);
 }
 ?>
 <!DOCTYPE html>
@@ -22,31 +22,31 @@ if ($currentUser) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo __('app_name'); ?></title>
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
 </head>
 <body>
     <?php if ($currentUser): ?>
     <header class="header">
         <div class="container">
             <div class="header-content">
-                <a href="/pages/dashboard.php" class="logo"><?php echo __('app_name'); ?></a>
+                <a href="<?php echo BASE_URL; ?>/pages/dashboard.php" class="logo"><?php echo __('app_name'); ?></a>
                 <nav class="nav">
-                    <a href="/pages/dashboard.php" class="<?php echo $currentPage === 'dashboard' ? 'active' : ''; ?>">
+                    <a href="<?php echo BASE_URL; ?>/pages/dashboard.php" class="<?php echo $currentPage === 'dashboard' ? 'active' : ''; ?>">
                         <?php echo __('dashboard'); ?>
                     </a>
-                    <a href="/pages/cases.php" class="<?php echo $currentPage === 'cases' ? 'active' : ''; ?>">
+                    <a href="<?php echo BASE_URL; ?>/pages/cases.php" class="<?php echo $currentPage === 'cases' ? 'active' : ''; ?>">
                         <?php echo __('cases'); ?>
                     </a>
                     <div class="user-menu">
-                        <img src="/assets/uploads/profiles/<?php echo htmlspecialchars($currentUser['profile_picture']); ?>" 
+                        <img src="<?php echo BASE_URL; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($currentUser['profile_picture']); ?>" 
                              alt="<?php echo htmlspecialchars($currentUser['full_name']); ?>" 
                              class="user-avatar"
                              onclick="toggleDropdown('userDropdown')"
-                             onerror="this.src='/assets/images/default.png'">
+                             onerror="this.src='<?php echo BASE_URL; ?>/assets/images/default.png'">
                         <div id="userDropdown" class="dropdown">
-                            <a href="/pages/profile.php"><?php echo __('my_profile'); ?></a>
-                            <a href="/pages/settings.php"><?php echo __('settings'); ?></a>
-                            <a href="/pages/logout.php"><?php echo __('logout'); ?></a>
+                            <a href="<?php echo BASE_URL; ?>/pages/profile.php"><?php echo __('my_profile'); ?></a>
+                            <a href="<?php echo BASE_URL; ?>/pages/settings.php"><?php echo __('settings'); ?></a>
+                            <a href="<?php echo BASE_URL; ?>/pages/logout.php"><?php echo __('logout'); ?></a>
                         </div>
                     </div>
                 </nav>

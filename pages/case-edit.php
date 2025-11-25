@@ -12,6 +12,22 @@ if (!$case) {
     exit();
 }
 
+$caseData = [];
+if (!empty($case['case_data'])) {
+    $decoded = json_decode($case['case_data'], true);
+    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        $caseData = $decoded;
+    }
+}
+
+$memberDataDisplay = '';
+if (!empty($case['member_data'])) {
+    $decodedMember = json_decode($case['member_data'], true);
+    $memberDataDisplay = json_last_error() === JSON_ERROR_NONE
+        ? json_encode($decodedMember, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        : $case['member_data'];
+}
+
 $users = getAllUsers();
 $error = '';
 $success = '';
@@ -26,15 +42,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } else {
         $title = $_POST['title'] ?? '';
-        $description = $_POST['description'] ?? '';
+        $caseBody = $_POST['case_body'] ?? '';
+        $description = $caseBody;
         $status = $_POST['status'] ?? 'new';
         $priority = $_POST['priority'] ?? 'medium';
         $assignedTo = !empty($_POST['assigned_to']) ? $_POST['assigned_to'] : null;
+        $receivedAt = $_POST['received_at'] ?? '';
+        $recipient = $_POST['recipient'] ?? '';
+        $handlerLabel = $_POST['handler'] ?? '';
+        $memberLookup = $_POST['member_lookup'] ?? '';
+        $memberDataRaw = $_POST['member_data'] ?? '';
+        $caseDataRaw = $_POST['case_data'] ?? '';
         
         if (empty($title) || empty($description)) {
             $error = __('error_required');
         } else {
-            if (updateCase($caseId, $title, $description, $status, $priority, $assignedTo)) {
+            $newCaseData = [];
+            if (!empty($caseDataRaw)) {
+                $decoded = json_decode($caseDataRaw, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $newCaseData = $decoded;
+                }
+            }
+
+            if (empty($newCaseData)) {
+                $newCaseData = [
+                    'received_at' => $receivedAt,
+                    'recipient' => $recipient,
+                    'handler' => $handlerLabel,
+                    'member_lookup' => $memberLookup,
+                    'case_body' => $caseBody
+                ];
+            }
+
+            $memberData = null;
+            if (!empty($memberDataRaw)) {
+                $memberDataDecoded = json_decode($memberDataRaw, true);
+                $memberData = json_last_error() === JSON_ERROR_NONE ? $memberDataDecoded : $memberDataRaw;
+            }
+
+            if (updateCase($caseId, $title, $description, $status, $priority, $assignedTo, $newCaseData, $memberData)) {
                 header('Location: case-view.php?id=' . $caseId);
                 exit();
             } else {
@@ -49,9 +96,18 @@ include __DIR__ . '/../includes/header.php';
 
 <main class="main-content">
     <div class="container">
-        <h1><?php echo __('edit'); ?> <?php echo __('case'); ?></h1>
-        
-        <div class="card mt-3">
+        <div class="card mt-3 case-builder">
+            <div class="section-header">
+                <div>
+                    <p class="eyebrow"><?php echo __('edit'); ?> <?php echo __('case'); ?></p>
+                    <h1>Ärendehantering</h1>
+                    <p class="muted"><?php echo __('case_data_json'); ?> &amp; <?php echo __('last_edited_at'); ?> uppdateras vid sparande.</p>
+                </div>
+                <div class="hero-actions">
+                    <a href="case-view.php?id=<?php echo $caseId; ?>" class="btn btn-secondary btn-sm"><?php echo __('back'); ?></a>
+                </div>
+            </div>
+
             <?php if ($error): ?>
                 <div class="alert alert-error"><?php echo $error; ?></div>
             <?php endif; ?>
@@ -60,66 +116,100 @@ include __DIR__ . '/../includes/header.php';
                 <div class="alert alert-success"><?php echo $success; ?></div>
             <?php endif; ?>
             
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label class="form-label" for="title"><?php echo __('title'); ?> *</label>
-                    <input type="text" id="title" name="title" class="form-input" required 
-                           value="<?php echo htmlspecialchars($_POST['title'] ?? $case['title']); ?>">
+            <form method="POST" action="" id="caseForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="title"><?php echo __('title'); ?> *</label>
+                        <input type="text" id="title" name="title" class="form-input" required 
+                               value="<?php echo htmlspecialchars($_POST['title'] ?? $case['title']); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="priority"><?php echo __('priority'); ?></label>
+                        <select id="priority" name="priority" class="form-select">
+                            <option value="low" <?php echo ($_POST['priority'] ?? $case['priority']) === 'low' ? 'selected' : ''; ?>>
+                                <?php echo __('priority_low'); ?>
+                            </option>
+                            <option value="medium" <?php echo ($_POST['priority'] ?? $case['priority']) === 'medium' ? 'selected' : ''; ?>>
+                                <?php echo __('priority_medium'); ?>
+                            </option>
+                            <option value="high" <?php echo ($_POST['priority'] ?? $case['priority']) === 'high' ? 'selected' : ''; ?>>
+                                <?php echo __('priority_high'); ?>
+                            </option>
+                            <option value="urgent" <?php echo ($_POST['priority'] ?? $case['priority']) === 'urgent' ? 'selected' : ''; ?>>
+                                <?php echo __('priority_urgent'); ?>
+                            </option>
+                        </select>
+                    </div>
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="description"><?php echo __('description'); ?> *</label>
-                    <textarea id="description" name="description" class="form-textarea" required><?php echo htmlspecialchars($_POST['description'] ?? $case['description']); ?></textarea>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="received_at"><?php echo __('received_at'); ?></label>
+                        <input type="datetime-local" id="received_at" name="received_at" class="form-input"
+                               value="<?php echo htmlspecialchars($_POST['received_at'] ?? ($caseData['received_at'] ?? date('Y-m-d\TH:i', strtotime($case['created_at'])))); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="recipient"><?php echo __('recipient'); ?></label>
+                        <input type="text" id="recipient" name="recipient" class="form-input"
+                               value="<?php echo htmlspecialchars($_POST['recipient'] ?? ($caseData['recipient'] ?? '')); ?>">
+                    </div>
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="status"><?php echo __('status'); ?></label>
-                    <select id="status" name="status" class="form-select">
-                        <option value="new" <?php echo ($_POST['status'] ?? $case['status']) === 'new' ? 'selected' : ''; ?>>
-                            <?php echo __('status_new'); ?>
-                        </option>
-                        <option value="in_progress" <?php echo ($_POST['status'] ?? $case['status']) === 'in_progress' ? 'selected' : ''; ?>>
-                            <?php echo __('status_in_progress'); ?>
-                        </option>
-                        <option value="resolved" <?php echo ($_POST['status'] ?? $case['status']) === 'resolved' ? 'selected' : ''; ?>>
-                            <?php echo __('status_resolved'); ?>
-                        </option>
-                        <option value="closed" <?php echo ($_POST['status'] ?? $case['status']) === 'closed' ? 'selected' : ''; ?>>
-                            <?php echo __('status_closed'); ?>
-                        </option>
-                    </select>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="assigned_to"><?php echo __('handler'); ?></label>
+                        <select id="assigned_to" name="assigned_to" class="form-select">
+                            <option value=""><?php echo __('assigned_to'); ?></option>
+                            <?php foreach ($users as $u): ?>
+                            <option value="<?php echo $u['id']; ?>" <?php echo ($_POST['assigned_to'] ?? $case['assigned_to']) == $u['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($u['full_name']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="hidden" name="handler" id="handler" value="<?php echo htmlspecialchars($caseData['handler'] ?? ''); ?>">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="member_lookup"><?php echo __('member_lookup'); ?></label>
+                        <div class="flex gap-1">
+                            <input type="number" id="member_lookup" name="member_lookup" class="form-input" 
+                                   placeholder="12345" value="<?php echo htmlspecialchars($_POST['member_lookup'] ?? ($caseData['member_lookup'] ?? '')); ?>" style="flex: 1;">
+                            <button type="button" id="fetchMemberBtn" class="btn btn-secondary btn-sm"><?php echo __('fetch_member'); ?></button>
+                        </div>
+                    </div>
                 </div>
-                
+
                 <div class="form-group">
-                    <label class="form-label" for="priority"><?php echo __('priority'); ?></label>
-                    <select id="priority" name="priority" class="form-select">
-                        <option value="low" <?php echo ($_POST['priority'] ?? $case['priority']) === 'low' ? 'selected' : ''; ?>>
-                            <?php echo __('priority_low'); ?>
-                        </option>
-                        <option value="medium" <?php echo ($_POST['priority'] ?? $case['priority']) === 'medium' ? 'selected' : ''; ?>>
-                            <?php echo __('priority_medium'); ?>
-                        </option>
-                        <option value="high" <?php echo ($_POST['priority'] ?? $case['priority']) === 'high' ? 'selected' : ''; ?>>
-                            <?php echo __('priority_high'); ?>
-                        </option>
-                        <option value="urgent" <?php echo ($_POST['priority'] ?? $case['priority']) === 'urgent' ? 'selected' : ''; ?>>
-                            <?php echo __('priority_urgent'); ?>
-                        </option>
-                    </select>
+                    <label class="form-label" for="member_data"><?php echo __('member_data'); ?></label>
+                    <textarea id="member_data" name="member_data" class="form-textarea" rows="3" placeholder="JSON..." spellcheck="false"><?php echo htmlspecialchars($_POST['member_data'] ?? $memberDataDisplay); ?></textarea>
                 </div>
-                
+
                 <div class="form-group">
-                    <label class="form-label" for="assigned_to"><?php echo __('assigned_to'); ?></label>
-                    <select id="assigned_to" name="assigned_to" class="form-select">
-                        <option value="">-</option>
-                        <?php foreach ($users as $u): ?>
-                        <option value="<?php echo $u['id']; ?>" <?php echo ($_POST['assigned_to'] ?? $case['assigned_to']) == $u['id'] ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($u['full_name']); ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label class="form-label" for="case_body"><?php echo __('case_body'); ?> *</label>
+                    <textarea id="case_body" name="case_body" class="form-textarea tall" required><?php echo htmlspecialchars($_POST['case_body'] ?? ($caseData['case_body'] ?? $case['description'])); ?></textarea>
                 </div>
-                
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="status"><?php echo __('status'); ?></label>
+                        <select id="status" name="status" class="form-select">
+                            <option value="new" <?php echo ($_POST['status'] ?? $case['status']) === 'new' ? 'selected' : ''; ?>>
+                                <?php echo __('status_new'); ?>
+                            </option>
+                            <option value="in_progress" <?php echo ($_POST['status'] ?? $case['status']) === 'in_progress' ? 'selected' : ''; ?>>
+                                <?php echo __('status_in_progress'); ?>
+                            </option>
+                            <option value="resolved" <?php echo ($_POST['status'] ?? $case['status']) === 'resolved' ? 'selected' : ''; ?>>
+                                <?php echo __('status_resolved'); ?>
+                            </option>
+                            <option value="closed" <?php echo ($_POST['status'] ?? $case['status']) === 'closed' ? 'selected' : ''; ?>>
+                                <?php echo __('status_closed'); ?>
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                <input type="hidden" name="case_data" id="case_data">
+
                 <div class="flex-between">
                     <div class="flex gap-2">
                         <button type="submit" class="btn btn-primary"><?php echo __('save'); ?></button>
@@ -134,5 +224,70 @@ include __DIR__ . '/../includes/header.php';
         </div>
     </div>
 </main>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('caseForm');
+    const memberField = document.getElementById('member_data');
+    const memberLookup = document.getElementById('member_lookup');
+    const caseDataField = document.getElementById('case_data');
+    const handlerSelect = document.getElementById('assigned_to');
+    const handlerHidden = document.getElementById('handler');
+    const fetchBtn = document.getElementById('fetchMemberBtn');
+
+    if (handlerSelect && handlerHidden) {
+        if (!handlerHidden.value) {
+            handlerHidden.value = handlerSelect.options[handlerSelect.selectedIndex]?.text || '';
+        }
+        handlerSelect.addEventListener('change', () => {
+            handlerHidden.value = handlerSelect.options[handlerSelect.selectedIndex]?.text || '';
+        });
+    }
+
+    if (fetchBtn) {
+        fetchBtn.addEventListener('click', async () => {
+            const id = memberLookup.value;
+            if (!id) return;
+            fetchBtn.disabled = true;
+            fetchBtn.textContent = '...';
+            try {
+                const res = await fetch(`member-fetch.php?id=${encodeURIComponent(id)}`);
+                const data = await res.json();
+                if (data.success && data.member) {
+                    memberField.value = JSON.stringify(data.member, null, 2);
+                } else {
+                    alert(data.error || 'Member not found');
+                }
+            } catch (err) {
+                alert('Could not fetch member data');
+            } finally {
+                fetchBtn.disabled = false;
+                fetchBtn.textContent = '<?php echo __('fetch_member'); ?>';
+            }
+        });
+    }
+
+    form.addEventListener('submit', () => {
+        const payload = {
+            received_at: document.getElementById('received_at').value,
+            recipient: document.getElementById('recipient').value,
+            handler: handlerHidden.value,
+            member_lookup: memberLookup.value,
+            case_body: document.getElementById('case_body').value,
+            last_edited_at: new Date().toISOString()
+        };
+
+        if (memberField.value.trim()) {
+            try {
+                payload.member_data = JSON.parse(memberField.value);
+            } catch (_) {
+                payload.member_data = memberField.value;
+            }
+        }
+
+        caseDataField.value = JSON.stringify(payload);
+    });
+});
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

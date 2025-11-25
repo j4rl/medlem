@@ -101,6 +101,10 @@ return [
     'open_cases' => 'Open Cases',
     'resolved_cases' => 'Resolved Cases',
     'my_open_cases' => 'My Open Cases',
+    'submitted_cases' => 'Submitted by Me',
+    'assigned_cases' => 'Assigned to Me',
+    'case_stats_mine' => 'My Case Stats',
+    'case_stats_overall' => 'Organization Totals',
     'no_cases' => 'No cases to display',
     'confirm_delete_case' => 'Are you sure you want to delete this case?',
     'details' => 'Details',
@@ -108,4 +112,15 @@ return [
     'username_immutable' => 'Username cannot be changed',
     'error_invalid_file_type' => 'Only JPG, JPEG, PNG, and GIF files are allowed',
     'error_file_too_large' => 'File size must be less than 5MB',
+    
+    // Case form (structured)
+    'received_at' => 'Received (Date/Time)',
+    'recipient' => 'Recipient (who logged the case?)',
+    'handler' => 'Suggested handler',
+    'member_lookup' => 'Member # / ID',
+    'fetch_member' => 'Fetch member data',
+    'member_data' => 'Member data',
+    'case_body' => 'Case',
+    'case_data_json' => 'Case data (JSON)',
+    'last_edited_at' => 'Last edited',
 ];
