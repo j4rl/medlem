@@ -47,21 +47,32 @@ CREATE TABLE IF NOT EXISTS tbl_cases (
     FOREIGN KEY (taker_id) REFERENCES tbl_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Members table (encrypted columns stored as BLOB Twofish ciphertext)
+-- Members table (encrypted at rest; all columns except id/medlnr stored as ciphertext)
 CREATE TABLE IF NOT EXISTS tbl_members (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    namn BLOB NOT NULL COMMENT 'Twofish-encrypted member name',
+    link TEXT DEFAULT NULL,
     medlnr INT NOT NULL COMMENT 'Membership number',
-    fodelsedatum BLOB DEFAULT NULL COMMENT 'Twofish-encrypted birth date (YYYY-MM-DD)',
-    primar_forening BLOB DEFAULT NULL COMMENT 'Twofish-encrypted primary union/association',
-    medlemsform TEXT NOT NULL,
-    primar_verksamhetsform BLOB DEFAULT NULL COMMENT 'Twofish-encrypted primary line of work',
-    skolform TEXT NOT NULL,
-    arbetsplats TEXT NOT NULL,
-    arbetsgivare TEXT NOT NULL,
-    befattning TEXT NOT NULL,
-    link TEXT NOT NULL,
+    namn TEXT DEFAULT NULL,
+    fodelsedatum TEXT DEFAULT NULL,
+    forening TEXT DEFAULT NULL,
+    medlemsform TEXT DEFAULT NULL,
+    befattning TEXT DEFAULT NULL,
+    verksamhetsform TEXT DEFAULT NULL,
+    arbetsplats TEXT DEFAULT NULL,
     UNIQUE KEY uniq_medlnr (medlnr)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Member import audit log
+CREATE TABLE IF NOT EXISTS tbl_member_imports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    filename VARCHAR(255) NOT NULL,
+    imported_by INT NULL,
+    imported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    total_rows INT NOT NULL DEFAULT 0,
+    inserted_rows INT NOT NULL DEFAULT 0,
+    updated_rows INT NOT NULL DEFAULT 0,
+    skipped_rows INT NOT NULL DEFAULT 0,
+    FOREIGN KEY (imported_by) REFERENCES tbl_users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Case comments table

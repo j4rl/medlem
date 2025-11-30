@@ -20,8 +20,8 @@ SET time_zone = "+00:00";
 --
 -- Databas: `medlem_db`
 --
--- NOTE: Encrypted columns store Twofish ciphertext (binary), so BLOB types
--- are used to avoid charset/collation issues.
+-- NOTE: Encrypted columns are stored as ciphertext (base64-safe) to avoid
+-- charset/collation issues.
 
 -- --------------------------------------------------------
 
@@ -75,17 +75,32 @@ CREATE TABLE `tbl_colors` (
 
 CREATE TABLE `tbl_members` (
   `id` int(11) NOT NULL,
-  `namn` blob NOT NULL COMMENT 'Twofish-encrypted member name',
+  `link` text DEFAULT NULL,
   `medlnr` int(11) NOT NULL COMMENT 'Membership number',
-  `fodelsedatum` blob DEFAULT NULL COMMENT 'Twofish-encrypted birth date (YYYY-MM-DD)',
-  `primar_forening` blob DEFAULT NULL COMMENT 'Twofish-encrypted primary union/association',
-  `medlemsform` text NOT NULL,
-  `primar_verksamhetsform` blob DEFAULT NULL COMMENT 'Twofish-encrypted primary line of work',
-  `skolform` text NOT NULL,
-  `arbetsplats` text NOT NULL,
-  `arbetsgivare` text NOT NULL,
-  `befattning` text NOT NULL,
-  `link` text NOT NULL
+  `namn` text DEFAULT NULL,
+  `fodelsedatum` text DEFAULT NULL,
+  `forening` text DEFAULT NULL,
+  `medlemsform` text DEFAULT NULL,
+  `befattning` text DEFAULT NULL,
+  `verksamhetsform` text DEFAULT NULL,
+  `arbetsplats` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Tabellstruktur `tbl_member_imports`
+--
+
+CREATE TABLE `tbl_member_imports` (
+  `id` int(11) NOT NULL,
+  `filename` varchar(255) NOT NULL,
+  `imported_by` int(11) DEFAULT NULL,
+  `imported_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `total_rows` int(11) NOT NULL DEFAULT 0,
+  `inserted_rows` int(11) NOT NULL DEFAULT 0,
+  `updated_rows` int(11) NOT NULL DEFAULT 0,
+  `skipped_rows` int(11) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -133,6 +148,13 @@ ALTER TABLE `tbl_members`
   ADD UNIQUE KEY `uniq_medlnr` (`medlnr`);
 
 --
+-- Index för tabell `tbl_member_imports`
+--
+ALTER TABLE `tbl_member_imports`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `imported_by` (`imported_by`);
+
+--
 -- Index för tabell `tbl_users`
 --
 ALTER TABLE `tbl_users`
@@ -158,6 +180,12 @@ ALTER TABLE `tbl_colors`
 -- AUTO_INCREMENT för tabell `tbl_members`
 --
 ALTER TABLE `tbl_members`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT för tabell `tbl_member_imports`
+--
+ALTER TABLE `tbl_member_imports`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --

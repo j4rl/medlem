@@ -31,15 +31,20 @@ if ($currentUser) {
             <div class="header-content">
                 <a href="<?php echo BASE_URL; ?>/pages/dashboard.php" class="logo"><?php echo __('app_name'); ?></a>
                 <nav class="nav">
-                    <a href="<?php echo BASE_URL; ?>/pages/dashboard.php" class="<?php echo $currentPage === 'dashboard' ? 'active' : ''; ?>">
-                        <?php echo __('dashboard'); ?>
+                <a href="<?php echo BASE_URL; ?>/pages/dashboard.php" class="<?php echo $currentPage === 'dashboard' ? 'active' : ''; ?>">
+                    <?php echo __('dashboard'); ?>
+                </a>
+                <a href="<?php echo BASE_URL; ?>/pages/cases.php" class="<?php echo $currentPage === 'cases' ? 'active' : ''; ?>">
+                    <?php echo __('cases'); ?>
+                </a>
+                <?php if (!empty($currentUser['role']) && strtolower($currentUser['role']) === 'admin'): ?>
+                    <a href="<?php echo BASE_URL; ?>/pages/admin-import.php" class="<?php echo $currentPage === 'admin-import' ? 'active' : ''; ?>">
+                        <?php echo __('admin'); ?>
                     </a>
-                    <a href="<?php echo BASE_URL; ?>/pages/cases.php" class="<?php echo $currentPage === 'cases' ? 'active' : ''; ?>">
-                        <?php echo __('cases'); ?>
-                    </a>
-                    <div class="user-menu">
-                        <img src="<?php echo BASE_URL; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($currentUser['profile_picture']); ?>" 
-                             alt="<?php echo htmlspecialchars($currentUser['full_name']); ?>" 
+                <?php endif; ?>
+                <div class="user-menu">
+                    <img src="<?php echo BASE_URL; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($currentUser['profile_picture']); ?>" 
+                         alt="<?php echo htmlspecialchars($currentUser['full_name']); ?>" 
                              class="user-avatar"
                              onclick="toggleDropdown('userDropdown')"
                              onerror="this.src='<?php echo BASE_URL; ?>/assets/images/default.png'">
