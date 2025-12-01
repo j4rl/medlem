@@ -44,6 +44,11 @@ Use this checklist when deploying the Medlem system to production.
 - [ ] Update `DB_NAME` in `config/database.php`
 - [ ] Test database connection (visit `/install.php`)
 
+### Encryption Configuration
+- [ ] Set `DATA_ENCRYPTION_KEY` (32-byte raw/hex/base64) for member data encryption
+- [ ] Confirm OpenSSL AES-256-GCM is available on the server
+- [ ] Verify member import works after key is set
+
 ### Security Configuration
 - [ ] Change default admin password immediately after first login
 - [ ] Review `.htaccess` security headers

@@ -28,12 +28,14 @@ Tack för att du vill bidra till Medlem! / Thank you for wanting to contribute t
 - Kommentera komplex kod / Comment complex code
 - Skriv beskrivande commit-meddelanden / Write descriptive commit messages
 - Testa all ny funktionalitet / Test all new functionality
+- Kör `php -l <fil>` på berörda PHP-filer / Run `php -l <file>` on touched PHP files
+- Uppdatera dokumentation och översättningar när flöden ändras / Update docs and translations when flows change
 
 ## Säkerhet / Security
 
 - Använd alltid prepared statements för databas-queries / Always use prepared statements for database queries
-- Escapea all output med htmlspecialchars() / Escape all output with htmlspecialchars()
-- Hasha lösenord med password_hash() / Hash passwords with password_hash()
+- Escapea all output med `htmlspecialchars()` / Escape all output with `htmlspecialchars()`
+- Hasha lösenord med `password_hash()` / Hash passwords with `password_hash()`
 - Validera och sanitera all user input / Validate and sanitize all user input
 
 ## Bug-rapporter / Bug Reports
@@ -41,7 +43,7 @@ Tack för att du vill bidra till Medlem! / Thank you for wanting to contribute t
 När du rapporterar bugs, inkludera:
 - En tydlig beskrivning av problemet / A clear description of the problem
 - Steg för att reproducera / Steps to reproduce
-- Förväntad vs faktisk beteende / Expected vs actual behavior
+- Förväntat vs faktiskt beteende / Expected vs actual behavior
 - Skärmdumpar om relevant / Screenshots if relevant
 - PHP- och MySQL-version / PHP and MySQL version
 
@@ -54,5 +56,4 @@ Vi välkomnar nya idéer! När du föreslår features:
 
 ## Frågor? / Questions?
 
-Skapa ett issue på GitHub eller kontakta maintainers.
-Create an issue on GitHub or contact the maintainers.
+Skapa ett issue på GitHub eller kontakta maintainers. / Create an issue on GitHub or contact the maintainers.
