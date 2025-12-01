@@ -49,7 +49,7 @@ function toggleDropdown(dropdownId) {
 
 // Close dropdown when clicking outside
 document.addEventListener('click', function(event) {
-    if (!event.target.closest('.user-menu')) {
+    if (!event.target.closest('.user-menu') && !event.target.closest('.nav-dropdown')) {
         const dropdowns = document.querySelectorAll('.dropdown');
         dropdowns.forEach(dropdown => {
             dropdown.classList.remove('show');

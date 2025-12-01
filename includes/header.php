@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/theme.php';
 
 $currentUser = getCurrentUser();
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
+$isAdminSection = in_array($currentPage, ['admin-import', 'admin-themes'], true);
 
 // Load user settings if logged in
 $userSettings = null;
@@ -48,12 +49,19 @@ $themeStyles = renderThemeStyles($activeTheme);
                     <?php echo __('cases'); ?>
                 </a>
                 <?php if (!empty($currentUser['role']) && strtolower($currentUser['role']) === 'admin'): ?>
-                    <a href="<?php echo BASE_URL; ?>/pages/admin-themes.php" class="<?php echo $currentPage === 'admin-themes' ? 'active' : ''; ?>">
-                        <?php echo __('themes'); ?>
-                    </a>
-                    <a href="<?php echo BASE_URL; ?>/pages/admin-import.php" class="<?php echo $currentPage === 'admin-import' ? 'active' : ''; ?>">
-                        <?php echo __('admin'); ?>
-                    </a>
+                    <div class="nav-dropdown">
+                        <button type="button" class="nav-link <?php echo $isAdminSection ? 'active' : ''; ?>" onclick="toggleDropdown('adminDropdown')">
+                            <?php echo __('admin'); ?>
+                        </button>
+                        <div id="adminDropdown" class="dropdown dropdown-nav">
+                            <a href="<?php echo BASE_URL; ?>/pages/admin-import.php" class="<?php echo $currentPage === 'admin-import' ? 'active' : ''; ?>">
+                                <?php echo __('member_import'); ?>
+                            </a>
+                            <a href="<?php echo BASE_URL; ?>/pages/admin-themes.php" class="<?php echo $currentPage === 'admin-themes' ? 'active' : ''; ?>">
+                                <?php echo __('themes'); ?>
+                            </a>
+                        </div>
+                    </div>
                 <?php endif; ?>
                 <div class="user-menu">
                     <img src="<?php echo BASE_URL; ?>/assets/uploads/profiles/<?php echo htmlspecialchars($currentUser['profile_picture']); ?>" 
