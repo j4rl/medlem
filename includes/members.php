@@ -11,6 +11,15 @@ function tableExists(mysqli $conn, string $table): bool
 
 function normalizeHeaderLabel(string $header): string
 {
+    // Normalize common encodings (UTF-8 / Windows-1252) and strip any BOM
+    $header = str_replace("\xEF\xBB\xBF", '', $header);
+    if (function_exists('mb_detect_encoding')) {
+        $encoding = mb_detect_encoding($header, ['UTF-8', 'ISO-8859-1', 'WINDOWS-1252'], true);
+        if ($encoding && $encoding !== 'UTF-8') {
+            $header = iconv($encoding, 'UTF-8//IGNORE', $header);
+        }
+    }
+
     $clean = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $header);
     if ($clean === false) {
         $clean = $header;
@@ -114,6 +123,138 @@ function getMemberImportHistory(int $limit = 20): array
     return $history;
 }
 
+function parseBirthdate(?string $value): ?DateTimeImmutable
+{
+    if (!is_string($value)) {
+        return null;
+    }
+
+    $value = trim($value);
+    if ($value === '') {
+        return null;
+    }
+
+    if (preg_match('/^(\\d{4})[- ]?(\\d{2})[- ]?(\\d{2})$/', $value, $matches)) {
+        try {
+            return new DateTimeImmutable(sprintf('%s-%s-%s', $matches[1], $matches[2], $matches[3]));
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    try {
+        return new DateTimeImmutable($value);
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function getFiftiethBirthday(?string $birthdate): ?DateTimeImmutable
+{
+    $date = parseBirthdate($birthdate);
+    if (!$date) {
+        return null;
+    }
+
+    try {
+        return $date->modify('+50 years');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function fetchMembers(): array
+{
+    $conn = getDBConnection();
+    if (!tableExists($conn, 'tbl_members')) {
+        closeDBConnection($conn);
+        return [];
+    }
+
+    $members = [];
+    $result = $conn->query("SELECT * FROM tbl_members");
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $members[] = decryptMemberRow($row);
+        }
+        $result->free();
+    }
+
+    closeDBConnection($conn);
+    return $members;
+}
+
+function filterAndSortMembers(array $members, array $options = []): array
+{
+    $search = trim((string)($options['search'] ?? ''));
+    $fieldsToMatch = [
+        'arbetsplats' => trim((string)($options['arbetsplats'] ?? '')),
+        'medlemsform' => trim((string)($options['medlemsform'] ?? '')),
+        'befattning' => trim((string)($options['befattning'] ?? '')),
+        'verksamhetsform' => trim((string)($options['verksamhetsform'] ?? '')),
+    ];
+    $turns50Months = isset($options['turns50_months']) ? (int)$options['turns50_months'] : null;
+
+    $filtered = array_filter($members, function ($member) use ($search, $fieldsToMatch, $turns50Months) {
+        if ($search !== '' && stripos((string)($member['namn'] ?? ''), $search) === false) {
+            return false;
+        }
+
+        foreach ($fieldsToMatch as $field => $value) {
+            if ($value === '') {
+                continue;
+            }
+            if (stripos((string)($member[$field] ?? ''), $value) === false) {
+                return false;
+            }
+        }
+
+        if ($turns50Months !== null) {
+            $fifty = getFiftiethBirthday($member['fodelsedatum'] ?? null);
+            if (!$fifty) {
+                return false;
+            }
+
+            $now = new DateTimeImmutable('today');
+            $cutoff = $now->modify('+' . $turns50Months . ' months');
+            if ($fifty < $now || $fifty > $cutoff) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    $sortBy = $options['sort_by'] ?? 'namn';
+    $allowedSorts = ['medlnr', 'namn', 'fodelsedatum', 'forening', 'medlemsform', 'befattning', 'verksamhetsform', 'arbetsplats'];
+    if (!in_array($sortBy, $allowedSorts, true)) {
+        $sortBy = 'namn';
+    }
+
+    $direction = strtolower($options['sort_dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+
+    usort($filtered, function ($a, $b) use ($sortBy, $direction) {
+        $valueA = $a[$sortBy] ?? '';
+        $valueB = $b[$sortBy] ?? '';
+
+        if ($sortBy === 'medlnr') {
+            $cmp = (int)$valueA <=> (int)$valueB;
+        } elseif ($sortBy === 'fodelsedatum') {
+            $dateA = parseBirthdate($valueA);
+            $dateB = parseBirthdate($valueB);
+            $tsA = $dateA ? $dateA->getTimestamp() : 0;
+            $tsB = $dateB ? $dateB->getTimestamp() : 0;
+            $cmp = $tsA <=> $tsB;
+        } else {
+            $cmp = strcasecmp((string)$valueA, (string)$valueB);
+        }
+
+        return $direction === 'asc' ? $cmp : -$cmp;
+    });
+
+    return array_values($filtered);
+}
+
 function mapHeadersToFields(array $headers): array
 {
     $map = [];
@@ -146,11 +287,28 @@ function mapHeadersToFields(array $headers): array
         'arbetsplats' => 'arbetsplats',
     ];
 
+    // Allow matching headers that lose characters (e.g. �) by collapsing spaces
+    $normalizedFieldMap = $headerFieldMap;
+    foreach ($headerFieldMap as $key => $field) {
+        $compactKey = str_replace(' ', '', $key);
+        if (!isset($normalizedFieldMap[$compactKey])) {
+            $normalizedFieldMap[$compactKey] = $field;
+        }
+    }
+
     foreach ($headers as $index => $header) {
         $normalized = normalizeHeaderLabel($header);
-        if (isset($headerFieldMap[$normalized])) {
-            $map[$headerFieldMap[$normalized]] = $index;
-            continue;
+        $normalizedCompacted = str_replace(' ', '', $normalized);
+
+        foreach ([$normalized, $normalizedCompacted] as $candidate) {
+            if ($candidate === '') {
+                continue;
+            }
+
+            if (isset($normalizedFieldMap[$candidate])) {
+                $map[$normalizedFieldMap[$candidate]] = $index;
+                continue 2; // matched this header, move to the next one
+            }
         }
 
         // Fuzzy fallback: match by keyword fragments

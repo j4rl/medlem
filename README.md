@@ -1,19 +1,16 @@
-# Medlem - Ärendehanteringssystem
+# Medlem - ärendehanteringssystem
 
-Enkelt ärendehanteringssystem för lärarfackförening (Case Management System for Teachers Union)
+Enkelt ärendehanteringssystem för lärarfackförening (Case Management System for Teachers Union).
 
 ## Funktioner / Features
 
-- **Användarhantering** - Registrering, inloggning, profiler
-- **Ärendehantering** - Skapa, visa, redigera och ta bort ärenden
-- **Kommentarer** - Lägg till kommentarer på ärenden
-- **Flerspråksstöd** - Svenska och Engelska (i18n)
-- **Användarinställningar**:
-  - Ljust/Mörkt läge
-  - Anpassningsbara färgteman
-  - Språkval
-  - Profilbilder
-- **Responsiv design** - Fungerar på alla enheter
+- **Användarhantering** – Registrering, inloggning, profiler, valfri tvåfaktorsinloggning (TOTP)
+- **Medlemsregister** – CSV-import med automatiska rubrikfixar (Födelsedatum/Arbetsplats), sök, filtrering, sortering och vy för medlemmar som fyller 50 inom 1/3/6 månader
+- **Ärendehantering** – Skapa, visa, redigera och ta bort ärenden; snabbvy över egna och tilldelade ärenden med rubrik och handläggare
+- **Kommentarer** – Lägg till kommentarer på ärenden
+- **Flerspråksstöd** – Svenska och Engelska (i18n)
+- **Användarinställningar** – Ljust/Mörkt läge, färgteman, språkval, profilbilder
+- **Responsiv design** – Fungerar på alla enheter
 
 ## Teknisk stack
 
@@ -42,11 +39,9 @@ Enkelt ärendehanteringssystem för lärarfackförening (Case Management System 
    ```bash
    mysql -u root -p < config/setup.sql
    ```
-   
-   Eller importera filen `config/setup.sql` via phpMyAdmin
+   eller importera filen `config/setup.sql` via phpMyAdmin.
 
 3. **Konfigurera databas**
-   
    Redigera `config/database.php` och uppdatera dina databasuppgifter:
    ```php
    define('DB_HOST', 'localhost');
@@ -61,91 +56,48 @@ Enkelt ärendehanteringssystem för lärarfackförening (Case Management System 
    ```
 
 5. **Öppna i webbläsaren**
-   
-   Navigera till din installation, t.ex. `http://localhost/medlem`
+   Navigera till din installation, t.ex. `http://localhost/medlem`.
 
 ### Standard inloggning
 
 - **Användarnamn**: admin
 - **Lösenord**: admin123
 
-⚠️ **OBS**: Ändra admin-lösenordet direkt efter första inloggningen!
+**OBS**: Ändra admin-lösenordet direkt efter första inloggningen!
+
+## Snabbstart
+
+- Skapa ett nytt ärende via "Nytt ärende"; fyll rubrik, beskrivning, prio och (valfritt) handläggare.
+- Se dina ärenden och tilldelade ärenden i flikarna på ärendelistan.
+- Importera medlemmar via Admin → Import; därefter sök/filter/sortera i Medlemmar-sidan och använd 50-årsvyerna.
 
 ## Projektstruktur
 
 ```
 medlem/
-├── assets/
-│   ├── css/          # Stilmallar
-│   ├── js/           # JavaScript-filer
-│   ├── images/       # Bilder och ikoner
-│   └── uploads/      # Uppladdade filer
-├── config/
-│   ├── database.php  # Databaskonfiguration
-│   └── setup.sql     # Databas-schema
-├── includes/
-│   ├── auth.php      # Autentisering
-│   ├── cases.php     # Ärendehantering
-│   ├── user.php      # Användarhantering
-│   ├── i18n.php      # Internationalisering
-│   ├── header.php    # Header-template
-│   └── footer.php    # Footer-template
-├── lang/
-│   ├── sv.php        # Svenska översättningar
-│   └── en.php        # Engelska översättningar
-├── pages/
-│   ├── login.php           # Inloggningssida
-│   ├── register.php        # Registreringssida
-│   ├── dashboard.php       # Instrumentpanel
-│   ├── cases.php           # Ärendelista
-│   ├── case-create.php     # Skapa ärende
-│   ├── case-view.php       # Visa ärende
-│   ├── case-edit.php       # Redigera ärende
-│   ├── profile.php         # Användarprofil
-│   └── settings.php        # Inställningar
-└── index.php         # Startsida
+├── assets/          # CSS, JS, images, uploads
+├── config/          # Konfiguration och databas-schema
+├── includes/        # Återanvändbara PHP-moduler (auth, cases, members, i18n)
+├── lang/            # Översättningar (sv, en)
+├── pages/           # Sidor (login, dashboard, cases, members m.fl.)
+└── index.php        # Startsida
 ```
-
-## Användning
-
-### Skapa ett nytt ärende
-
-1. Logga in i systemet
-2. Klicka på "Nytt ärende" från instrumentpanelen eller ärendelistan
-3. Fyll i titel, beskrivning, prioritet
-4. Tilldela ärendet till en användare (valfritt)
-5. Klicka "Skapa ärende"
-
-### Ändra tema och färger
-
-1. Gå till Inställningar från användarmenyn
-2. Välj ljust eller mörkt läge
-3. Välj önskad primärfärg
-4. Välj språk
-5. Klicka "Spara"
-
-### Uppdatera profilbild
-
-1. Gå till "Min profil" från användarmenyn
-2. Klicka på "Välj fil" under profilbilden
-3. Välj en bild (JPG, PNG, GIF, max 5MB)
-4. Klicka "Byt bild"
 
 ## Säkerhet
 
-- Lösenord hashas med PHP's `password_hash()` (bcrypt)
-- SQL-injektionsskydd via prepared statements
-- XSS-skydd via `htmlspecialchars()`
+- Lösenord hashas med `password_hash()` (bcrypt)
+- Prepared statements för SQL
+- `htmlspecialchars()` för utdata
 - Session-baserad autentisering
-- Filuppladdningsskydd (filtyp och storlek)
+- Filuppladdningskontroller (typ och storlek)
 
 ## Bidra
 
-Bidrag är välkomna! Vänligen skapa en pull request med dina ändringar.
+Bidrag är välkomna! Skapa en pull request med dina ändringar.
 
 ## Licens
 
-Detta projekt är open source och tillgängligt under MIT-licensen.
+MIT-licens.
 
 ## Support
 

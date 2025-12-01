@@ -41,6 +41,9 @@ $themeStyles = renderThemeStyles($activeTheme);
                 <a href="<?php echo BASE_URL; ?>/pages/dashboard.php" class="<?php echo $currentPage === 'dashboard' ? 'active' : ''; ?>">
                     <?php echo __('dashboard'); ?>
                 </a>
+                <a href="<?php echo BASE_URL; ?>/pages/members.php" class="<?php echo $currentPage === 'members' ? 'active' : ''; ?>">
+                    <?php echo __('members'); ?>
+                </a>
                 <a href="<?php echo BASE_URL; ?>/pages/cases.php" class="<?php echo $currentPage === 'cases' ? 'active' : ''; ?>">
                     <?php echo __('cases'); ?>
                 </a>

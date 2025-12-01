@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/twofactor.php';
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
@@ -20,7 +21,7 @@ function getCurrentUser() {
     $conn = getDBConnection();
     $userId = $_SESSION['user_id'];
     
-    $stmt = $conn->prepare("SELECT id, username, email, name AS full_name, pic AS profile_picture, lang, role, userlevel, colorscheme FROM tbl_users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT id, username, email, name AS full_name, pic AS profile_picture, lang, role, userlevel, colorscheme, twofa_enabled FROM tbl_users WHERE id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -32,11 +33,11 @@ function getCurrentUser() {
     return $user;
 }
 
-// Login user
+// Login user (returns ['success'=>bool, 'requires_2fa'=>bool])
 function loginUser($username, $password) {
     $conn = getDBConnection();
     
-    $stmt = $conn->prepare("SELECT id, username, password FROM tbl_users WHERE username = ?");
+    $stmt = $conn->prepare("SELECT id, username, password, twofa_enabled, twofa_secret FROM tbl_users WHERE username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -45,18 +46,24 @@ function loginUser($username, $password) {
         $user = $result->fetch_assoc();
         
         if (password_verify($password, $user['password'])) {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
+            $requires2fa = !empty($user['twofa_enabled']) && !empty($user['twofa_secret']);
+            if ($requires2fa) {
+                $_SESSION['pending_2fa_user'] = (int)$user['id'];
+                $_SESSION['pending_2fa_username'] = $user['username'];
+            } else {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+            }
             
             $stmt->close();
             closeDBConnection($conn);
-            return true;
+            return ['success' => !$requires2fa, 'requires_2fa' => $requires2fa];
         }
     }
     
     $stmt->close();
     closeDBConnection($conn);
-    return false;
+    return ['success' => false, 'requires_2fa' => false];
 }
 
 // Register user
@@ -111,6 +118,42 @@ function registerUser($username, $email, $password, $fullName, $phone = '') {
 function logoutUser() {
     session_unset();
     session_destroy();
+}
+
+function hasPendingTwoFactor(): bool
+{
+    return isset($_SESSION['pending_2fa_user']);
+}
+
+function completeTwoFactorLogin(string $code): bool
+{
+    if (!hasPendingTwoFactor()) {
+        return false;
+    }
+
+    $userId = (int)$_SESSION['pending_2fa_user'];
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("SELECT id, username, twofa_secret FROM tbl_users WHERE id = ?");
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    $stmt->close();
+    closeDBConnection($conn);
+
+    if (!$user || empty($user['twofa_secret'])) {
+        return false;
+    }
+
+    if (!verifyTotpCode($user['twofa_secret'], $code)) {
+        return false;
+    }
+
+    $_SESSION['user_id'] = $user['id'];
+    $_SESSION['username'] = $user['username'];
+    unset($_SESSION['pending_2fa_user'], $_SESSION['pending_2fa_username']);
+
+    return true;
 }
 
 function isAdminUser(): bool {
