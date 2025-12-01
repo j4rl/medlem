@@ -111,7 +111,7 @@ include __DIR__ . '/../includes/header.php';
                         </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <p class="text-center" style="color: var(--text-secondary);"><?php echo __('no_comments_yet'); ?></p>
+                        <p class="text-center" style="color: var(--muted);"><?php echo __('no_comments_yet'); ?></p>
                     <?php endif; ?>
                     
                     <form method="POST" action="" class="mt-3">

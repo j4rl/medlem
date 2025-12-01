@@ -102,11 +102,11 @@
                         </a>
                     </div>
                     
-                    <div style="margin-top: 1rem; padding: 1rem; background-color: var(--bg-secondary); border-radius: 0.375rem;">
+                    <div style="margin-top: 1rem; padding: 1rem; background-color: var(--bg); border-radius: 0.375rem;">
                         <strong>Default Login:</strong><br>
                         Username: <code>admin</code><br>
                         Password: <code>admin123</code><br>
-                        <small style="color: var(--text-secondary);">⚠️ Change this password immediately!</small>
+                        <small style="color: var(--muted);">⚠️ Change this password immediately!</small>
                     </div>
                 <?php else: ?>
                     <div class="alert alert-info" style="margin-top: 1.5rem;">
@@ -115,9 +115,9 @@
                 <?php endif; ?>
             </div>
             
-            <div style="margin-top: 1.5rem; text-align: center; color: var(--text-secondary);">
+            <div style="margin-top: 1.5rem; text-align: center; color: var(--muted);">
                 For detailed instructions, see 
-                <a href="https://github.com/j4rl/medlem" target="_blank" style="color: var(--primary-color);">
+                <a href="https://github.com/j4rl/medlem" target="_blank" style="color: var(--primary);">
                     README.md
                 </a>
             </div>

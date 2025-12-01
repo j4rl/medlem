@@ -20,7 +20,7 @@ function getCurrentUser() {
     $conn = getDBConnection();
     $userId = $_SESSION['user_id'];
     
-    $stmt = $conn->prepare("SELECT id, username, email, name AS full_name, pic AS profile_picture, lang, role, userlevel FROM tbl_users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT id, username, email, name AS full_name, pic AS profile_picture, lang, role, userlevel, colorscheme FROM tbl_users WHERE id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $result = $stmt->get_result();

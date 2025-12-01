@@ -2,22 +2,31 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/user.php';
 require_once __DIR__ . '/../includes/i18n.php';
+require_once __DIR__ . '/../includes/theme.php';
 requireLogin();
 
 $user = getCurrentUser();
 $settings = getUserSettings($user['id']);
+$themes = getAllThemes();
+$currentThemeId = (int)($user['colorscheme'] ?? ($themes[0]['id'] ?? 1));
 $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $themeMode = $_POST['theme_mode'] ?? 'light';
-    $primaryColor = $_POST['primary_color'] ?? '#2563eb';
     $language = $_POST['language'] ?? 'sv';
+    $themeId = isset($_POST['theme_id']) ? (int)$_POST['theme_id'] : $currentThemeId;
+
+    $selectedTheme = getThemeById($themeId);
+    $primaryColor = $selectedTheme['primary_light'] ?? '#2563eb';
     
-    if (updateUserSettings($user['id'], $themeMode, $primaryColor, $language)) {
+    $themeSaved = setUserTheme($user['id'], $themeId);
+    
+    if ($themeSaved && updateUserSettings($user['id'], $themeMode, $primaryColor, $language)) {
         changeLanguage($language);
         $success = __('success_update');
         $settings = getUserSettings($user['id']);
+        $currentThemeId = $themeId;
     } else {
         $error = __('error_general');
     }
@@ -43,6 +52,29 @@ include __DIR__ . '/../includes/header.php';
             
             <form method="POST" action="">
                 <div class="form-group">
+                    <label class="form-label"><?php echo __('choose_theme'); ?></label>
+                    <div class="theme-grid">
+                        <?php foreach ($themes as $theme): ?>
+                            <label class="theme-card">
+                                <input type="radio" name="theme_id" value="<?php echo $theme['id']; ?>" <?php echo (int)$currentThemeId === (int)$theme['id'] ? 'checked' : ''; ?>>
+                                <div class="theme-card-body">
+                                    <div class="theme-card-header">
+                                        <span class="theme-name"><?php echo htmlspecialchars($theme['theme_name']); ?></span>
+                                        <span class="theme-pill">#<?php echo $theme['id']; ?></span>
+                                    </div>
+                                    <div class="theme-swatches">
+                                        <span style="background: <?php echo htmlspecialchars($theme['primary_light']); ?>" title="<?php echo __('primary_color'); ?>"></span>
+                                        <span style="background: <?php echo htmlspecialchars($theme['accent_light']); ?>" title="<?php echo __('accent_color'); ?>"></span>
+                                        <span style="background: <?php echo htmlspecialchars($theme['surface_light']); ?>" title="<?php echo __('surface_light'); ?>"></span>
+                                        <span style="background: <?php echo htmlspecialchars($theme['bg_light']); ?>" title="<?php echo __('bg_light'); ?>"></span>
+                                    </div>
+                                </div>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label class="form-label"><?php echo __('theme'); ?></label>
                     <div class="flex gap-2">
                         <label style="flex: 1;">
@@ -63,36 +95,6 @@ include __DIR__ . '/../includes/header.php';
                                 <?php echo __('dark_mode'); ?>
                             </div>
                         </label>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label"><?php echo __('primary_color'); ?></label>
-                    <div class="color-options">
-                        <?php 
-                        $colors = [
-                            '#2563eb' => 'Blue',
-                            '#7c3aed' => 'Purple',
-                            '#db2777' => 'Pink',
-                            '#dc2626' => 'Red',
-                            '#ea580c' => 'Orange',
-                            '#16a34a' => 'Green',
-                            '#0891b2' => 'Cyan',
-                            '#4b5563' => 'Gray'
-                        ];
-                        foreach ($colors as $color => $name):
-                        ?>
-                        <label>
-                            <input type="radio" name="primary_color" value="<?php echo $color; ?>" 
-                                   <?php echo $settings['primary_color'] === $color ? 'checked' : ''; ?>
-                                   onchange="setPrimaryColor('<?php echo $color; ?>')"
-                                   style="display: none;">
-                            <div class="color-option <?php echo $settings['primary_color'] === $color ? 'active' : ''; ?>" 
-                                 style="background-color: <?php echo $color; ?>;"
-                                 title="<?php echo $name; ?>">
-                            </div>
-                        </label>
-                        <?php endforeach; ?>
                     </div>
                 </div>
                 
@@ -122,12 +124,71 @@ include __DIR__ . '/../includes/header.php';
     }
     
     input[type="radio"]:checked + .card {
-        border: 2px solid var(--primary-color);
-        background-color: var(--bg-secondary);
+        border: 2px solid var(--primary);
+        background-color: var(--bg);
     }
-    
-    input[type="radio"]:checked + .color-option {
-        border-color: var(--text-primary);
+
+    .theme-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+    }
+
+    .theme-card {
+        display: block;
+        cursor: pointer;
+    }
+
+    .theme-card input {
+        display: none;
+    }
+
+    .theme-card-body {
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        padding: 0.85rem;
+        background: var(--surface);
+        transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .theme-card input:checked + .theme-card-body,
+    .theme-card-body:hover {
+        border-color: var(--primary);
+        transform: translateY(-2px);
+    }
+
+    .theme-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .theme-name {
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    .theme-pill {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 999px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--muted);
+    }
+
+    .theme-swatches {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.4rem;
+    }
+
+    .theme-swatches span {
+        display: block;
+        height: 20px;
+        border-radius: 0.35rem;
+        border: 1px solid rgba(0, 0, 0, 0.06);
     }
 </style>
 

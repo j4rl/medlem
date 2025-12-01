@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/i18n.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/user.php';
 requireLogin();
@@ -127,7 +129,7 @@ include __DIR__ . '/../includes/header.php';
                             <label class="form-label"><?php echo __('username'); ?></label>
                             <input type="text" class="form-input" readonly 
                                    value="<?php echo htmlspecialchars($user['username']); ?>">
-                            <small style="color: var(--text-secondary);"><?php echo __('username_immutable'); ?></small>
+                            <small style="color: var(--muted);"><?php echo __('username_immutable'); ?></small>
                         </div>
                         
                         <button type="submit" name="update_profile" class="btn btn-primary">

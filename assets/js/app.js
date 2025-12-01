@@ -2,12 +2,12 @@
 
 // Theme management
 function setTheme(theme) {
+    if (!theme) return;
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
 }
 
 function getTheme() {
-    return localStorage.getItem('theme') || 'light';
+    return document.documentElement.getAttribute('data-theme') || 'light';
 }
 
 // Load theme on page load
@@ -18,17 +18,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Primary color management
 function setPrimaryColor(color) {
-    document.documentElement.style.setProperty('--primary-color', color);
+    document.documentElement.style.setProperty('--primary', color);
     
     // Calculate hover color (darker)
     const hoverColor = adjustColor(color, -20);
     document.documentElement.style.setProperty('--primary-hover', hoverColor);
-    
-    localStorage.setItem('primaryColor', color);
 }
 
 function getPrimaryColor() {
-    return localStorage.getItem('primaryColor') || '#2563eb';
+    const current = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+    return current || '#2563eb';
 }
 
 // Adjust color brightness
@@ -39,12 +38,6 @@ function adjustColor(color, amount) {
     const b = Math.max(0, Math.min(255, (num & 0x0000FF) + amount));
     return '#' + (0x1000000 + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
-
-// Load primary color on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const color = getPrimaryColor();
-    setPrimaryColor(color);
-});
 
 // Dropdown menu toggle
 function toggleDropdown(dropdownId) {

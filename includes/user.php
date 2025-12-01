@@ -1,13 +1,14 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/theme.php';
 
 // Get user settings (fallback defaults; table is optional)
 function getUserSettings($userId) {
     // Defaults
     $defaults = [
         'theme_mode' => 'light',
-        'primary_color' => '#2563eb',
+        'primary_color' => defaultThemePalette()['primary_light'],
         'language' => 'sv'
     ];
 
@@ -38,12 +39,21 @@ function updateUserSettings($userId, $themeMode, $primaryColor, $language) {
     
     $stmt = $conn->prepare("UPDATE user_settings SET theme_mode = ?, primary_color = ?, language = ? WHERE user_id = ?");
     $stmt->bind_param("sssi", $themeMode, $primaryColor, $language, $userId);
-    
-    $success = $stmt->execute();
-    
+    $stmt->execute();
+    $affected = $stmt->affected_rows;
     $stmt->close();
+
+    if ($affected === 0) {
+        $stmt = $conn->prepare("INSERT INTO user_settings (theme_mode, primary_color, language, user_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE theme_mode = VALUES(theme_mode), primary_color = VALUES(primary_color), language = VALUES(language)");
+        $stmt->bind_param("sssi", $themeMode, $primaryColor, $language, $userId);
+        $stmt->execute();
+        $success = $stmt->affected_rows >= 0;
+        $stmt->close();
+    } else {
+        $success = true;
+    }
+
     closeDBConnection($conn);
-    
     return $success;
 }
 

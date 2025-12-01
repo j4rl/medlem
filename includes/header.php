@@ -3,26 +3,33 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/i18n.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/user.php';
+require_once __DIR__ . '/../includes/theme.php';
 
 $currentUser = getCurrentUser();
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 
 // Load user settings if logged in
 $userSettings = null;
+$themeMode = 'light';
 if ($currentUser) {
     $userSettings = getUserSettings($currentUser['id']);
     // Set language from user settings
     $lang = $userSettings['language'] ?? ($currentUser['lang'] ?? 'sv');
+    $themeMode = $userSettings['theme_mode'] ?? 'light';
     changeLanguage($lang);
 }
+
+$activeTheme = getThemeForUser($currentUser['colorscheme'] ?? null);
+$themeStyles = renderThemeStyles($activeTheme);
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo getCurrentLanguage(); ?>">
+<html lang="<?php echo getCurrentLanguage(); ?>" data-theme="<?php echo htmlspecialchars($themeMode, ENT_QUOTES, 'UTF-8'); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo __('app_name'); ?></title>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+    <?php echo $themeStyles; ?>
 </head>
 <body>
     <?php if ($currentUser): ?>
@@ -38,6 +45,9 @@ if ($currentUser) {
                     <?php echo __('cases'); ?>
                 </a>
                 <?php if (!empty($currentUser['role']) && strtolower($currentUser['role']) === 'admin'): ?>
+                    <a href="<?php echo BASE_URL; ?>/pages/admin-themes.php" class="<?php echo $currentPage === 'admin-themes' ? 'active' : ''; ?>">
+                        <?php echo __('themes'); ?>
+                    </a>
                     <a href="<?php echo BASE_URL; ?>/pages/admin-import.php" class="<?php echo $currentPage === 'admin-import' ? 'active' : ''; ?>">
                         <?php echo __('admin'); ?>
                     </a>
@@ -59,11 +69,3 @@ if ($currentUser) {
         </div>
     </header>
     <?php endif; ?>
-    
-    <script>
-        // Apply user theme and color settings
-        <?php if ($userSettings): ?>
-        document.documentElement.setAttribute('data-theme', '<?php echo $userSettings['theme_mode']; ?>');
-        document.documentElement.style.setProperty('--primary-color', '<?php echo $userSettings['primary_color']; ?>');
-        <?php endif; ?>
-    </script>
