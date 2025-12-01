@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS tbl_users (
     last_login TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     userlevel INT NOT NULL DEFAULT 10,
     role ENUM('Admin','Användare') NOT NULL DEFAULT 'Användare',
+    twofa_secret VARCHAR(64) DEFAULT NULL,
+    twofa_enabled TINYINT(1) NOT NULL DEFAULT 0,
     INDEX idx_username (username),
     INDEX idx_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

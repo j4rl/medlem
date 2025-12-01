@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Members directory page with search, filtering (arbetsplats/medlemsform/befattning/verksamhetsform), sorting, and quick views for members turning 50 within 1/3/6 months
 - Navigation entry to access the members directory
 - Simplified cases list: scope by related/created/assigned, status chips, search, and quick cards showing rubrik + handläggare for your own and assigned cases
+- Optional TOTP-based two-factor authentication for logins (enable/disable in user settings)
 
 ### Fixed
 - CSV import now correctly maps Födelsedatum and Arbetsplats even when headers are mangled by encoding

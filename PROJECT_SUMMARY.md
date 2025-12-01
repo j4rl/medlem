@@ -27,6 +27,7 @@
 - Passwords via `password_hash` (bcrypt)
 - Prepared statements, escaped output, session-based auth
 - Member fields encrypted at rest (AES-256-GCM) except IDs/medlemsnummer
+- Optional TOTP two-factor authentication for logins
 
 5) **UX**
 - Responsive layout, light/dark themes, configurable primary color

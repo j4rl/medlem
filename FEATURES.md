@@ -6,6 +6,7 @@
 - Registration with username, email, and password
 - Secure login and session management
 - Logout to clear sessions
+- Optional TOTP-based two-factor authentication (6-digit codes)
 
 ### 2. User Profiles
 - Full name, email, immutable username
@@ -62,6 +63,7 @@
 - Session-based authentication
 - File upload validation (type/size)
 - Member data encrypted at rest (AES-256-GCM) except IDs/medlemsnummer
+- Optional TOTP 2FA for logins
 
 ### 10. Database Schema (high level)
 - `tbl_users`: accounts, roles, settings

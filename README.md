@@ -4,7 +4,7 @@ Enkelt ärendehanteringssystem för lärarfackförening (Case Management System 
 
 ## Funktioner / Features
 
-- **Användarhantering** – Registrering, inloggning, profiler
+- **Användarhantering** – Registrering, inloggning, profiler, valfri tvåfaktorsinloggning (TOTP)
 - **Medlemsregister** – CSV-import med automatiska rubrikfixar (Födelsedatum/Arbetsplats), sök, filtrering, sortering och vy för medlemmar som fyller 50 inom 1/3/6 månader
 - **Ärendehantering** – Skapa, visa, redigera och ta bort ärenden; snabbvy över egna och tilldelade ärenden med rubrik och handläggare
 - **Kommentarer** – Lägg till kommentarer på ärenden

@@ -22,8 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($username) || empty($password)) {
         $error = __('error_required');
     } else {
-        if (loginUser($username, $password)) {
+        $result = loginUser($username, $password);
+        if (!empty($result['success'])) {
             header('Location: dashboard.php');
+            exit();
+        } elseif (!empty($result['requires_2fa'])) {
+            header('Location: twofactor.php');
             exit();
         } else {
             $error = __('error_login');
