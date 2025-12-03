@@ -75,9 +75,10 @@ function createCase($title, $description, $priority, $createdBy, $assignedTo = n
     if (is_null($memberDataJson)) {
         $memberDataJson = '{}';
     }
-    $assignedToValue = $assignedTo ?: null;
+    // Default taker to the creator so the case is immediately assigned
+    $assignedToValue = $assignedTo ?: $createdBy;
 
-    $stmt = $conn->prepare("INSERT INTO tbl_cases (user_id, caseheader, taker_id, member_data, case_data, status, prio) VALUES (?, ?, ?, ?, ?, 'new', ?)");
+    $stmt = $conn->prepare("INSERT INTO tbl_cases (user_id, caseheader, taker_id, member_data, case_data, status, prio, created, changed) VALUES (?, ?, ?, ?, ?, 'new', ?, NOW(), NOW())");
     $stmt->bind_param("isisss", $createdBy, $title, $assignedToValue, $memberDataJson, $caseDataJson, $priority);
 
     if ($stmt->execute()) {

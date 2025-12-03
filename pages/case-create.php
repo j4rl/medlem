@@ -8,6 +8,8 @@ $users = getAllUsers();
 $error = '';
 $success = '';
 $now = date('Y-m-d\TH:i');
+// Default taker is the current user for faster handoff
+$defaultAssignee = $user['id'] ?? null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = $_POST['title'] ?? '';
@@ -84,7 +86,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="form-grid">
                     <div class="form-group">
                         <label class="form-label" for="title"><?php echo __('title'); ?> *</label>
-                        <input type="text" id="title" name="title" class="form-input" required 
+                        <input type="text" id="title" name="title" class="form-input" required autofocus
                                value="<?php echo htmlspecialchars($_POST['title'] ?? ''); ?>">
                     </div>
                     <div class="form-group">
@@ -125,7 +127,10 @@ include __DIR__ . '/../includes/header.php';
                         <select id="assigned_to" name="assigned_to" class="form-select">
                             <option value=""><?php echo __('assigned_to'); ?></option>
                             <?php foreach ($users as $u): ?>
-                            <option value="<?php echo $u['id']; ?>" <?php echo ($_POST['assigned_to'] ?? '') == $u['id'] ? 'selected' : ''; ?>>
+                            <option value="<?php echo $u['id']; ?>" <?php
+                                $selectedAssignee = $_POST['assigned_to'] ?? $defaultAssignee;
+                                echo ($selectedAssignee == $u['id']) ? 'selected' : '';
+                            ?>>
                                 <?php echo htmlspecialchars($u['full_name']); ?>
                             </option>
                             <?php endforeach; ?>
