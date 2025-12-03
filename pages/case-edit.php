@@ -473,7 +473,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const openPopover = () => {
         if (!memberPopover) return;
         memberPopover.style.display = 'flex';
-        memberSearchInput?.focus();
+        if (memberSearchInput) {
+            memberSearchInput.focus();
+        }
     };
 
     closePopoverButtons.forEach((btn) => btn.addEventListener('click', closePopover));
@@ -560,13 +562,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (memberDataBtn) {
         memberDataBtn.addEventListener('click', openPopover);
     }
-    memberSearchBtn?.addEventListener('click', performSearch);
-    memberSearchInput?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            performSearch();
-        }
-    });
+    if (memberSearchBtn) {
+        memberSearchBtn.addEventListener('click', performSearch);
+    }
+    if (memberSearchInput) {
+        memberSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                performSearch();
+            }
+        });
+    }
     if (copyMemberDataBtn) {
         copyMemberDataBtn.addEventListener('click', async () => {
             if (!selectedMember) return;

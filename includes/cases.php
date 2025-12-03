@@ -1,6 +1,16 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 
+function normalizeStatusValue($value, $fallback = 'new') {
+    $allowed = ['new', 'in_progress', 'resolved', 'closed'];
+    return in_array($value, $allowed, true) ? $value : $fallback;
+}
+
+function normalizePriorityValue($value, $fallback = 'medium') {
+    $allowed = ['low', 'medium', 'high', 'urgent'];
+    return in_array($value, $allowed, true) ? $value : $fallback;
+}
+
 // Normalize case_data payload to a JSON string and stamp last edit time
 function formatCaseData($caseData = [], bool $touchEditTime = true) {
     if (is_string($caseData) && trim($caseData) !== '') {
@@ -43,11 +53,13 @@ function formatMemberData($memberData = null) {
 
 function mapCaseRow($row) {
     if (!$row) return null;
-    // Generate a virtual case number for display
-    $year = isset($row['created']) ? date('Y', strtotime($row['created'])) : date('Y');
-    $row['case_number'] = 'CASE-' . $year . '-' . str_pad((int)$row['id'], 4, '0', STR_PAD_LEFT);
+    // Generate a virtual case number: YY-MM-#### (serial padded to 4)
+    $year = isset($row['created']) ? date('y', strtotime($row['created'])) : date('y');
+    $month = isset($row['created']) ? date('m', strtotime($row['created'])) : date('m');
+    $row['case_number'] = $year . '-' . $month . '-' . str_pad((int)$row['id'], 4, '0', STR_PAD_LEFT);
     $row['title'] = $row['caseheader'] ?? '';
-    $row['priority'] = $row['prio'] ?? 'medium';
+    $row['priority'] = normalizePriorityValue($row['prio'] ?? 'medium');
+    $row['status'] = normalizeStatusValue($row['status'] ?? 'new');
     $row['created_at'] = $row['created'] ?? null;
     $row['updated_at'] = $row['changed'] ?? $row['created'] ?? null;
     $row['assigned_to'] = $row['taker_id'] ?? null;
@@ -67,6 +79,7 @@ function mapCaseRow($row) {
 function createCase($title, $description, $priority, $createdBy, $assignedTo = null, $caseData = [], $memberData = null) {
     $conn = getDBConnection();
 
+    $priority = normalizePriorityValue($priority);
     if (empty($caseData)) {
         $caseData = ['case_body' => $description];
     }
@@ -83,9 +96,11 @@ function createCase($title, $description, $priority, $createdBy, $assignedTo = n
 
     if ($stmt->execute()) {
         $caseId = $stmt->insert_id;
+        $now = new DateTimeImmutable();
+        $caseNumber = $now->format('y-m') . '-' . str_pad($caseId, 4, '0', STR_PAD_LEFT);
         $stmt->close();
         closeDBConnection($conn);
-        return ['success' => true, 'case_id' => $caseId, 'case_number' => 'CASE-' . date('Y') . '-' . str_pad($caseId, 4, '0', STR_PAD_LEFT)];
+        return ['success' => true, 'case_id' => $caseId, 'case_number' => $caseNumber];
     }
 
     $stmt->close();
@@ -182,6 +197,8 @@ function getCaseById($caseId) {
 function updateCase($caseId, $title, $description, $status, $priority, $assignedTo = null, $caseData = [], $memberData = null) {
     $conn = getDBConnection();
 
+    $status = normalizeStatusValue($status);
+    $priority = normalizePriorityValue($priority);
     if (empty($caseData)) {
         $caseData = ['case_body' => $description];
     }
