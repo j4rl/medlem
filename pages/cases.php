@@ -36,8 +36,8 @@ include __DIR__ . '/../includes/header.php';
                     <a href="cases.php" class="btn btn-sm <?php echo !$statusFilter ? 'btn-primary' : 'btn-secondary'; ?>">
                         <?php echo __('all_cases'); ?>
                     </a>
-                    <a href="cases.php?status=new" class="btn btn-sm <?php echo $statusFilter === 'new' ? 'btn-primary' : 'btn-secondary'; ?>">
-                        <?php echo __('status_new'); ?>
+                    <a href="cases.php?status=no_action" class="btn btn-sm <?php echo $statusFilter === 'no_action' ? 'btn-primary' : 'btn-secondary'; ?>">
+                        <?php echo __('status_no_action'); ?>
                     </a>
                     <a href="cases.php?status=in_progress" class="btn btn-sm <?php echo $statusFilter === 'in_progress' ? 'btn-primary' : 'btn-secondary'; ?>">
                         <?php echo __('status_in_progress'); ?>

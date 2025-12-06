@@ -48,8 +48,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="meter" aria-label="<?php echo __('open_cases'); ?>">
                     <div class="meter-ring meter-open" style="--meter-percent: <?php echo $meterPercent($userOpen, $userTotal); ?>;">
                         <div class="meter-center">
-                            <div class="meter-value"><?php echo $userOpen; ?></div>
-                            <div class="meter-sub"><?php echo $meterPercent($userOpen, $userTotal); ?>%</div>
+                            <div class="meter-value"><?php echo $meterPercent($userOpen, $userTotal); ?>%</div>
                         </div>
                     </div>
                     <p class="meter-label"><?php echo __('open_cases'); ?></p>
@@ -57,8 +56,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="meter" aria-label="<?php echo __('resolved_cases'); ?>">
                     <div class="meter-ring meter-resolved" style="--meter-percent: <?php echo $meterPercent($userResolved, $userTotal); ?>;">
                         <div class="meter-center">
-                            <div class="meter-value"><?php echo $userResolved; ?></div>
-                            <div class="meter-sub"><?php echo $meterPercent($userResolved, $userTotal); ?>%</div>
+                            <div class="meter-value"><?php echo $meterPercent($userResolved, $userTotal); ?>%</div>
                         </div>
                     </div>
                     <p class="meter-label"><?php echo __('resolved_cases'); ?></p>
@@ -66,8 +64,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="meter" aria-label="<?php echo __('status_closed'); ?>">
                     <div class="meter-ring meter-closed" style="--meter-percent: <?php echo $meterPercent($userClosed, $userTotal); ?>;">
                         <div class="meter-center">
-                            <div class="meter-value"><?php echo $userClosed; ?></div>
-                            <div class="meter-sub"><?php echo $meterPercent($userClosed, $userTotal); ?>%</div>
+                            <div class="meter-value"><?php echo $meterPercent($userClosed, $userTotal); ?>%</div>
                         </div>
                     </div>
                     <p class="meter-label"><?php echo __('status_closed'); ?></p>
@@ -76,7 +73,6 @@ include __DIR__ . '/../includes/header.php';
                     <div class="meter-ring meter-total" style="--meter-percent: 100;">
                         <div class="meter-center">
                             <div class="meter-value"><?php echo $userTotal; ?></div>
-                            <div class="meter-sub"><?php echo __('total_cases'); ?></div>
                         </div>
                     </div>
                     <p class="meter-label"><?php echo __('my_cases'); ?></p>
@@ -99,8 +95,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="meter" aria-label="<?php echo __('open_cases'); ?>">
                     <div class="meter-ring meter-open alt" style="--meter-percent: <?php echo $meterPercent($orgOpen, $orgTotal); ?>;">
                         <div class="meter-center">
-                            <div class="meter-value"><?php echo $orgOpen; ?></div>
-                            <div class="meter-sub"><?php echo $meterPercent($orgOpen, $orgTotal); ?>%</div>
+                            <div class="meter-value"><?php echo $meterPercent($orgOpen, $orgTotal); ?>%</div>
                         </div>
                     </div>
                     <p class="meter-label"><?php echo __('open_cases'); ?></p>
@@ -108,8 +103,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="meter" aria-label="<?php echo __('resolved_cases'); ?>">
                     <div class="meter-ring meter-resolved alt" style="--meter-percent: <?php echo $meterPercent($orgResolved, $orgTotal); ?>;">
                         <div class="meter-center">
-                            <div class="meter-value"><?php echo $orgResolved; ?></div>
-                            <div class="meter-sub"><?php echo $meterPercent($orgResolved, $orgTotal); ?>%</div>
+                            <div class="meter-value"><?php echo $meterPercent($orgResolved, $orgTotal); ?>%</div>
                         </div>
                     </div>
                     <p class="meter-label"><?php echo __('resolved_cases'); ?></p>
@@ -117,8 +111,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="meter" aria-label="<?php echo __('status_closed'); ?>">
                     <div class="meter-ring meter-closed alt" style="--meter-percent: <?php echo $meterPercent($orgClosed, $orgTotal); ?>;">
                         <div class="meter-center">
-                            <div class="meter-value"><?php echo $orgClosed; ?></div>
-                            <div class="meter-sub"><?php echo $meterPercent($orgClosed, $orgTotal); ?>%</div>
+                            <div class="meter-value"><?php echo $meterPercent($orgClosed, $orgTotal); ?>%</div>
                         </div>
                     </div>
                     <p class="meter-label"><?php echo __('status_closed'); ?></p>
@@ -127,7 +120,6 @@ include __DIR__ . '/../includes/header.php';
                     <div class="meter-ring meter-total alt" style="--meter-percent: 100;">
                         <div class="meter-center">
                             <div class="meter-value"><?php echo $orgTotal; ?></div>
-                            <div class="meter-sub"><?php echo __('total_cases'); ?></div>
                         </div>
                     </div>
                     <p class="meter-label"><?php echo __('all_cases'); ?></p>

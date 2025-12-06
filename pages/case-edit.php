@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $title = $_POST['title'] ?? ($case['title'] ?? '');
         $caseBody = $_POST['case_body'] ?? '';
         $description = $caseBody;
-        $status = $_POST['status'] ?? 'new';
+        $status = $_POST['status'] ?? 'in_progress';
         $priority = $_POST['priority'] ?? 'medium';
         $assignedTo = !empty($_POST['assigned_to']) ? $_POST['assigned_to'] : ($case['assigned_to'] ?? null);
         $handlerLabel = $_POST['handler'] ?? ($case['assignee_name'] ?? '');
@@ -139,29 +139,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            if (empty($newCaseData)) {
-                $newCaseData = [];
-            }
+            $newCaseData = buildCaseDataPayload($newCaseData, $caseBody, [
+                'handler' => $handlerLabel,
+                'active_entry_title' => $entryTitle,
+                'active_entry_id' => $entryId,
+                'active_entry_date' => $entryDate,
+            ]);
 
-            if (!is_array($newCaseData)) {
-                $newCaseData = [];
-            }
-
-            if ($handlerLabel !== '') {
-                $newCaseData['handler'] = $handlerLabel;
-            }
-            if (!empty($caseBody)) {
-                $newCaseData['case_body'] = $caseBody;
-            }
-            if ($entryTitle !== '') {
-                $newCaseData['active_entry_title'] = $entryTitle;
-            }
-            if ($entryId !== '') {
-                $newCaseData['active_entry_id'] = $entryId;
-            }
-            if ($entryDate !== '') {
-                $newCaseData['active_entry_date'] = $entryDate;
-            }
             if (!isset($newCaseData['last_edited_at'])) {
                 $newCaseData['last_edited_at'] = date('c');
             }
@@ -228,8 +212,8 @@ include __DIR__ . '/../includes/header.php';
                     <div class="form-group">
                         <label class="form-label" for="status"><?php echo __('status'); ?></label>
                         <select id="status" name="status" class="form-select">
-                            <option value="new" <?php echo ($_POST['status'] ?? $case['status']) === 'new' ? 'selected' : ''; ?>>
-                                <?php echo __('status_new'); ?>
+                            <option value="no_action" <?php echo ($_POST['status'] ?? $case['status']) === 'no_action' ? 'selected' : ''; ?>>
+                                <?php echo __('status_no_action'); ?>
                             </option>
                             <option value="in_progress" <?php echo ($_POST['status'] ?? $case['status']) === 'in_progress' ? 'selected' : ''; ?>>
                                 <?php echo __('status_in_progress'); ?>
@@ -589,7 +573,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn('clipboard', err);
             }
             if (memberField) {
-                memberField.value = text;
+                const start = memberField.selectionStart ?? memberField.value.length;
+                const end = memberField.selectionEnd ?? memberField.value.length;
+                const before = memberField.value.substring(0, start);
+                const after = memberField.value.substring(end);
+                const needsNewlineBefore = before && !before.endsWith('\n');
+                const needsNewlineAfter = after && !text.endsWith('\n');
+                const insertion = `${needsNewlineBefore ? '\n' : ''}${text}${needsNewlineAfter ? '\n' : ''}`;
+                memberField.value = before + insertion + after;
+                const caret = (before + insertion).length;
+                memberField.selectionStart = memberField.selectionEnd = caret;
+                memberField.focus();
             }
         });
     }

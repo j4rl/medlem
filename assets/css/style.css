@@ -290,12 +290,14 @@ body {
     font-weight: 500;
 }
 
-.badge-new {
+.badge-no_action,
+.badge-no-action {
     background-color: #dbeafe;
     color: #1e40af;
 }
 
-.badge-in-progress {
+.badge-in-progress,
+.badge-in_progress {
     background-color: #fef3c7;
     color: #92400e;
 }
@@ -638,6 +640,7 @@ body {
     inset: 12%;
     background: var(--surface);
     border-radius: 50%;
+    z-index: 0;
 }
 
 .meter-center {
@@ -652,6 +655,7 @@ body {
     text-align: center;
     color: var(--text);
     padding: 0.5rem;
+    z-index: 1;
 }
 
 .meter-value {

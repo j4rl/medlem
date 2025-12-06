@@ -102,7 +102,7 @@ return [
     'resolved_at' => 'Löst',
     
     // Status
-    'status_new' => 'Ny',
+    'status_no_action' => 'Ingen åtgärd',
     'status_in_progress' => 'Pågående',
     'status_resolved' => 'Löst',
     'status_closed' => 'Stängd',

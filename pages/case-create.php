@@ -20,9 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $receivedAt = $_POST['received_at'] ?? '';
     $recipient = $_POST['recipient'] ?? '';
     $handlerLabel = $_POST['handler'] ?? '';
-    $memberLookup = $_POST['member_lookup'] ?? '';
-    $memberDataRaw = $_POST['member_data'] ?? '';
-    $caseDataRaw = $_POST['case_data'] ?? '';
+$memberLookup = $_POST['member_lookup'] ?? '';
+$memberDataRaw = $_POST['member_data'] ?? '';
+$caseDataRaw = $_POST['case_data'] ?? '';
     
     if (empty($title) || empty($description)) {
         $error = __('error_required');
@@ -35,15 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        if (empty($caseData)) {
-            $caseData = [
-                'received_at' => $receivedAt,
-                'recipient' => $recipient,
-                'handler' => $handlerLabel,
-                'member_lookup' => $memberLookup,
-                'case_body' => $caseBody
-            ];
-        }
+        $caseData = buildCaseDataPayload($caseData, $caseBody, [
+            'received_at' => $receivedAt,
+            'recipient' => $recipient,
+            'handler' => $handlerLabel,
+            'member_lookup' => $memberLookup,
+        ]);
 
         $memberData = null;
         if (!empty($memberDataRaw)) {
@@ -117,7 +114,7 @@ include __DIR__ . '/../includes/header.php';
                     <div class="form-group">
                         <label class="form-label" for="recipient"><?php echo __('recipient'); ?></label>
                         <input type="text" id="recipient" name="recipient" class="form-input"
-                               value="<?php echo htmlspecialchars($_POST['recipient'] ?? ''); ?>">
+                               value="<?php echo htmlspecialchars($_POST['recipient'] ?? ($user['full_name'] ?? '')); ?>">
                     </div>
                 </div>
 
@@ -177,6 +174,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const handlerSelect = document.getElementById('assigned_to');
     const handlerHidden = document.getElementById('handler');
     const fetchBtn = document.getElementById('fetchMemberBtn');
+    const recipientInput = document.getElementById('recipient');
+
+    const insertAtCaret = (el, text) => {
+        if (!el) return;
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? el.value.length;
+        const before = el.value.substring(0, start);
+        const after = el.value.substring(end);
+        const needsNewlineBefore = before && !before.endsWith('\n');
+        const needsNewlineAfter = after && !text.endsWith('\n');
+        const insertion = `${needsNewlineBefore ? '\n' : ''}${text}${needsNewlineAfter ? '\n' : ''}`;
+        el.value = before + insertion + after;
+        const caret = (before + insertion).length;
+        el.selectionStart = el.selectionEnd = caret;
+        el.focus();
+    };
 
     if (handlerSelect && handlerHidden) {
         handlerHidden.value = handlerSelect.options[handlerSelect.selectedIndex]?.text || '';
@@ -195,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(`member-fetch.php?id=${encodeURIComponent(id)}`);
                 const data = await res.json();
                 if (data.success && data.member) {
-                    memberField.value = JSON.stringify(data.member, null, 2);
+                    insertAtCaret(memberField, JSON.stringify(data.member, null, 2));
                 } else {
                     alert(data.error || 'Member not found');
                 }

@@ -102,7 +102,7 @@ return [
     'resolved_at' => 'Resolved',
     
     // Status
-    'status_new' => 'New',
+    'status_no_action' => 'No action',
     'status_in_progress' => 'In Progress',
     'status_resolved' => 'Resolved',
     'status_closed' => 'Closed',
