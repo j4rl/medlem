@@ -61,7 +61,7 @@ include __DIR__ . '/../includes/header.php';
 ?>
 
 <main class="main-content">
-    <div class="container">
+    <div class="container container-wide">
         <div class="flex-between mb-3">
             <div>
                 <p class="eyebrow"><?php echo __('member_directory'); ?></p>
@@ -134,7 +134,7 @@ include __DIR__ . '/../includes/header.php';
 
             <?php if (count($members) > 0): ?>
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table members-table">
                         <thead>
                             <tr>
                                 <?php
