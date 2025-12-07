@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // Swedish translations
 return [
     // General
@@ -22,9 +22,9 @@ return [
     'member_search_placeholder' => 'Sök på namn',
     'sort_by' => 'Sortera efter',
     'turns_50_soon' => 'Fyller 50 snart',
-    'within_1_month' => 'Inom 1 månad',
-    'within_3_months' => 'Inom 3 månader',
-    'within_6_months' => 'Inom 6 månader',
+    'within_1_month' => '50 inom 1 mån',
+    'within_3_months' => '50 inom 3 mån',
+    'within_6_months' => '50 inom 6 mån',
     'clear_filters' => 'Rensa filter',
     'turns_50_on' => 'Fyller 50 den',
     'no_members_found' => 'Inga medlemmar hittades',

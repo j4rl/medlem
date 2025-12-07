@@ -171,7 +171,7 @@ include __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
 
-                <div class="card" style="margin-top: 1rem; background: var(--surface-alt, #f8f8f8);">
+                <div class="card card-accent" style="margin-top: 1rem;">
                     <div class="form-group">
                         <label class="form-label" for="case_note"><?php echo __('case_body'); ?></label>
                         <textarea id="case_note" name="case_note" class="form-textarea tall" placeholder="<?php echo __('case_body'); ?>"></textarea>

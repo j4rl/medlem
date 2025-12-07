@@ -6,8 +6,23 @@ requireLogin();
 $user = getCurrentUser();
 $userStats = getCaseStatistics($user['id']);
 $orgStats = getCaseStatistics();
-$submittedCases = array_slice(getAllCases($user['id'], null, 'created'), 0, 6);
-$assignedCases = array_slice(getAllCases($user['id'], null, 'assigned'), 0, 6);
+$submittedCases = array_slice(getAllCases($user['id'], null, 'created'), 0, 3);
+$assignedCases = array_slice(getAllCases($user['id'], null, 'assigned'), 0, 3);
+
+$statusKeys = ['no_action', 'in_progress', 'resolved', 'closed'];
+$priorityKeys = ['low', 'medium', 'high', 'urgent'];
+$statusColors = [
+    'no_action' => '#38bdf8',
+    'in_progress' => '#fbbf24',
+    'resolved' => '#22c55e',
+    'closed' => '#a855f7',
+];
+$priorityColors = [
+    'low' => '#cbd5e1',
+    'medium' => '#60a5fa',
+    'high' => '#f97316',
+    'urgent' => '#ef4444',
+];
 
 // Helper for radial meters
 $meterPercent = function ($count, $total) {
@@ -15,6 +30,33 @@ $meterPercent = function ($count, $total) {
     $count = (int)$count;
     return $total > 0 ? round(($count / $total) * 100) : 0;
 };
+
+// Helper to build a conic gradient for pie charts
+function buildPieStyle(array $counts, array $colors, array $keys): string {
+    $total = 0;
+    foreach ($keys as $k) {
+        $total += (int)($counts[$k] ?? 0);
+    }
+    if ($total <= 0) {
+        return "background: conic-gradient(#e5e7eb 0deg 360deg);";
+    }
+    $segments = [];
+    $current = 0.0;
+    foreach ($keys as $k) {
+        $val = (int)($counts[$k] ?? 0);
+        if ($val <= 0) {
+            continue;
+        }
+        $next = $current + ($val / $total) * 360;
+        $color = $colors[$k] ?? '#2563eb';
+        $segments[] = sprintf('%s %.2fdeg %.2fdeg', $color, $current, $next);
+        $current = $next;
+    }
+    if (empty($segments)) {
+        return "background: conic-gradient(#e5e7eb 0deg 360deg);";
+    }
+    return 'background: conic-gradient(' . implode(',', $segments) . ');';
+}
 
 include __DIR__ . '/../includes/header.php';
 ?>
@@ -28,8 +70,8 @@ include __DIR__ . '/../includes/header.php';
                 <p class="muted"><?php echo __('statistics'); ?> &amp; <?php echo __('cases'); ?> at a glance.</p>
             </div>
             <div class="hero-actions">
-                <a href="case-create.php" class="btn btn-primary"><?php echo __('new_case'); ?></a>
-                <a href="cases.php" class="btn btn-secondary"><?php echo __('all_cases'); ?></a>
+                <button type="button" class="btn btn-primary" onclick="window.location.href='case-create.php'"><?php echo __('new_case'); ?></button>
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='cases.php'"><?php echo __('all_cases'); ?></button>
             </div>
         </section>
 
@@ -123,6 +165,95 @@ include __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
                     <p class="meter-label"><?php echo __('all_cases'); ?></p>
+                </div>
+            </div>
+        </section>
+
+        <?php
+            $userStatusCounts = $userStats['status_counts'] ?? [];
+            $userPriorityCounts = $userStats['priority_counts'] ?? [];
+            $orgStatusCounts = $orgStats['status_counts'] ?? [];
+            $orgPriorityCounts = $orgStats['priority_counts'] ?? [];
+
+            $calcMax = function(array $data, array $keys): int {
+                $max = 0;
+                foreach ($keys as $k) {
+                    $max = max($max, (int)($data[$k] ?? 0));
+                }
+                return $max ?: 1;
+            };
+
+            $userStatusMax = $calcMax($userStatusCounts, $statusKeys);
+            $userPriorityMax = $calcMax($userPriorityCounts, $priorityKeys);
+            $orgStatusMax = $calcMax($orgStatusCounts, $statusKeys);
+            $orgPriorityMax = $calcMax($orgPriorityCounts, $priorityKeys);
+        ?>
+
+        <section class="card">
+            <div class="section-header">
+                <h2><?php echo __('statistics'); ?></h2>
+                <span class="muted">Status + <?php echo __('priority'); ?> (pie)</span>
+            </div>
+            <div class="pie-grid">
+                <div class="pie-block">
+                    <h3><?php echo __('case_stats_mine'); ?> — <?php echo __('status'); ?></h3>
+                    <div class="pie-wrap">
+                        <div class="pie-chart" style="<?php echo buildPieStyle($userStatusCounts, $statusColors, $statusKeys); ?>"></div>
+                        <div class="pie-center"><?php echo array_sum($userStatusCounts); ?></div>
+                    </div>
+                    <ul class="pie-legend">
+                        <?php foreach ($statusKeys as $key): ?>
+                            <li>
+                                <span class="pie-dot" style="background: <?php echo $statusColors[$key]; ?>;"></span>
+                                <?php echo __('status_' . $key); ?> (<?php echo (int)($userStatusCounts[$key] ?? 0); ?>)
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <div class="pie-block">
+                    <h3><?php echo __('case_stats_mine'); ?> — <?php echo __('priority'); ?></h3>
+                    <div class="pie-wrap">
+                        <div class="pie-chart" style="<?php echo buildPieStyle($userPriorityCounts, $priorityColors, $priorityKeys); ?>"></div>
+                        <div class="pie-center"><?php echo array_sum($userPriorityCounts); ?></div>
+                    </div>
+                    <ul class="pie-legend">
+                        <?php foreach ($priorityKeys as $key): ?>
+                            <li>
+                                <span class="pie-dot" style="background: <?php echo $priorityColors[$key]; ?>;"></span>
+                                <?php echo __('priority_' . $key); ?> (<?php echo (int)($userPriorityCounts[$key] ?? 0); ?>)
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <div class="pie-block">
+                    <h3><?php echo __('case_stats_overall'); ?> — <?php echo __('status'); ?></h3>
+                    <div class="pie-wrap">
+                        <div class="pie-chart" style="<?php echo buildPieStyle($orgStatusCounts, $statusColors, $statusKeys); ?>"></div>
+                        <div class="pie-center"><?php echo array_sum($orgStatusCounts); ?></div>
+                    </div>
+                    <ul class="pie-legend">
+                        <?php foreach ($statusKeys as $key): ?>
+                            <li>
+                                <span class="pie-dot" style="background: <?php echo $statusColors[$key]; ?>;"></span>
+                                <?php echo __('status_' . $key); ?> (<?php echo (int)($orgStatusCounts[$key] ?? 0); ?>)
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+                <div class="pie-block">
+                    <h3><?php echo __('case_stats_overall'); ?> — <?php echo __('priority'); ?></h3>
+                    <div class="pie-wrap">
+                        <div class="pie-chart" style="<?php echo buildPieStyle($orgPriorityCounts, $priorityColors, $priorityKeys); ?>"></div>
+                        <div class="pie-center"><?php echo array_sum($orgPriorityCounts); ?></div>
+                    </div>
+                    <ul class="pie-legend">
+                        <?php foreach ($priorityKeys as $key): ?>
+                            <li>
+                                <span class="pie-dot" style="background: <?php echo $priorityColors[$key]; ?>;"></span>
+                                <?php echo __('priority_' . $key); ?> (<?php echo (int)($orgPriorityCounts[$key] ?? 0); ?>)
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
                 </div>
             </div>
         </section>

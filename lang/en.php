@@ -22,9 +22,9 @@ return [
     'member_directory' => 'Member directory',
     'member_search_placeholder' => 'Search by name',
     'turns_50_soon' => 'Turning 50 soon',
-    'within_1_month' => 'Within 1 month',
-    'within_3_months' => 'Within 3 months',
-    'within_6_months' => 'Within 6 months',
+    'within_1_month' => '50 in 1 mo',
+    'within_3_months' => '50 in 3 mo',
+    'within_6_months' => '50 in 6 mo',
     'clear_filters' => 'Clear filters',
     'turns_50_on' => 'Turns 50 on',
     'no_members_found' => 'No members found',
@@ -211,3 +211,4 @@ return [
     'encryption_not_configured' => 'Encryption key is not configured (DATA_ENCRYPTION_KEY).',
     'encryption_not_configured_hint' => 'Add a 32-byte key via DATA_ENCRYPTION_KEY (raw, hex, or base64) before importing.',
 ];
+

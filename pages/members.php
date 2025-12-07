@@ -19,7 +19,8 @@ $options = [
     'sort_dir' => $_GET['dir'] ?? 'asc',
 ];
 
-$members = filterAndSortMembers($allMembers, $options);
+$hasFilters = $options['search'] !== '' || $options['arbetsplats'] !== '' || $options['medlemsform'] !== '' || $options['befattning'] !== '' || $options['verksamhetsform'] !== '' || $options['turns50_months'] !== null;
+$members = $hasFilters ? filterAndSortMembers($allMembers, $options) : [];
 
 $uniqueValues = [];
 foreach ($filterFields as $field) {
@@ -68,18 +69,15 @@ include __DIR__ . '/../includes/header.php';
                 <h1><?php echo __('members'); ?></h1>
             </div>
             <div class="flex gap-2">
-                <a href="<?php echo buildQuery(['turns50' => 1]); ?>" class="btn btn-sm <?php echo $options['turns50_months'] === 1 ? 'btn-primary' : 'btn-secondary'; ?>">
+                <button type="button" class="btn btn-sm btn-chip <?php echo $options['turns50_months'] === 1 ? 'btn-accent' : 'btn-ghost'; ?>" onclick="window.location.href='<?php echo buildQuery(['turns50' => 1]); ?>'">
                     <?php echo __('within_1_month'); ?>
-                </a>
-                <a href="<?php echo buildQuery(['turns50' => 3]); ?>" class="btn btn-sm <?php echo $options['turns50_months'] === 3 ? 'btn-primary' : 'btn-secondary'; ?>">
+                </button>
+                <button type="button" class="btn btn-sm btn-chip <?php echo $options['turns50_months'] === 3 ? 'btn-accent' : 'btn-ghost'; ?>" onclick="window.location.href='<?php echo buildQuery(['turns50' => 3]); ?>'">
                     <?php echo __('within_3_months'); ?>
-                </a>
-                <a href="<?php echo buildQuery(['turns50' => 6]); ?>" class="btn btn-sm <?php echo $options['turns50_months'] === 6 ? 'btn-primary' : 'btn-secondary'; ?>">
+                </button>
+                <button type="button" class="btn btn-sm btn-chip <?php echo $options['turns50_months'] === 6 ? 'btn-accent' : 'btn-ghost'; ?>" onclick="window.location.href='<?php echo buildQuery(['turns50' => 6]); ?>'">
                     <?php echo __('within_6_months'); ?>
-                </a>
-                <a href="<?php echo basename(__FILE__); ?>" class="btn btn-sm btn-secondary">
-                    <?php echo __('clear_filters'); ?>
-                </a>
+                </button>
             </div>
         </div>
 
@@ -125,14 +123,17 @@ include __DIR__ . '/../includes/header.php';
                 </div>
                 <div class="form-group" style="margin:0;">
                     <label class="form-label">&nbsp;</label>
-                    <div class="flex gap-2">
+                    <div class="flex gap-2" style="flex-wrap: nowrap; align-items: stretch;">
                         <input type="hidden" name="dir" value="<?php echo $options['sort_dir']; ?>">
-                        <button type="submit" class="btn btn-primary" style="width: 100%;"><?php echo __('filter'); ?></button>
+                        <button type="submit" class="btn btn-primary" style="flex:1; min-width: 120px;"><?php echo __('filter'); ?></button>
+                        <button type="button" class="btn btn-secondary" style="flex:1; min-width: 120px;" onclick="window.location.href='<?php echo basename(__FILE__); ?>'"><?php echo __('clear_filters'); ?></button>
                     </div>
                 </div>
             </form>
 
-            <?php if (count($members) > 0): ?>
+            <?php if (!$hasFilters): ?>
+                <p class="text-center muted" style="margin: 1rem 0;"><?php echo __('search'); ?> <?php echo __('members'); ?>...</p>
+            <?php elseif (count($members) > 0): ?>
                 <div class="table-responsive">
                     <table class="table members-table">
                         <thead>

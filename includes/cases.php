@@ -1,5 +1,29 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/crypto.php';
+
+function encryptField($value) {
+    if ($value === null) {
+        return null;
+    }
+    try {
+        return encryptValue((string)$value);
+    } catch (RuntimeException $e) {
+        throw $e;
+    }
+}
+
+function decryptField($value) {
+    if ($value === null || $value === '') {
+        return null;
+    }
+    try {
+        $plain = decryptValue($value);
+        return $plain !== null ? $plain : $value;
+    } catch (RuntimeException $e) {
+        return $value;
+    }
+}
 
 function getStatusOptions(): array {
     $codes = ['no_action', 'in_progress', 'resolved', 'closed'];
@@ -135,6 +159,10 @@ function formatMemberData($memberData = null) {
 
 function mapCaseRow($row) {
     if (!$row) return null;
+    // Decrypt sensitive fields at rest
+    $row['caseheader'] = isset($row['caseheader']) ? decryptField($row['caseheader']) : '';
+    $row['case_data'] = isset($row['case_data']) ? decryptField($row['case_data']) : null;
+    $row['member_data'] = isset($row['member_data']) ? decryptField($row['member_data']) : null;
     // Generate a virtual case number: YY-MM-#### (serial padded to 4)
     $year = isset($row['created']) ? date('y', strtotime($row['created'])) : date('y');
     $month = isset($row['created']) ? date('m', strtotime($row['created'])) : date('m');
@@ -168,11 +196,21 @@ function createCase($title, $description, $priority, $createdBy, $assignedTo = n
     if (is_null($memberDataJson)) {
         $memberDataJson = '{}';
     }
+
+    try {
+        $encTitle = encryptField($title);
+        $encCaseData = encryptField($caseDataJson);
+        $encMemberData = encryptField($memberDataJson);
+    } catch (RuntimeException $e) {
+        closeDBConnection($conn);
+        return ['success' => false, 'error' => 'error_general'];
+    }
+
     // Default taker to the creator so the case is immediately assigned
     $assignedToValue = $assignedTo ?: $createdBy;
 
     $stmt = $conn->prepare("INSERT INTO tbl_cases (user_id, caseheader, taker_id, member_data, case_data, status, prio, created, changed) VALUES (?, ?, ?, ?, ?, 'in_progress', ?, NOW(), NOW())");
-    $stmt->bind_param("isisss", $createdBy, $title, $assignedToValue, $memberDataJson, $caseDataJson, $priority);
+    $stmt->bind_param("isisss", $createdBy, $encTitle, $assignedToValue, $encMemberData, $encCaseData, $priority);
 
     if ($stmt->execute()) {
         $caseId = $stmt->insert_id;
@@ -286,12 +324,22 @@ function updateCase($caseId, $title, $description, $status, $priority, $assigned
     if (is_null($memberDataJson)) {
         $memberDataJson = '{}';
     }
+
+    try {
+        $encTitle = encryptField($title);
+        $encCaseData = encryptField($caseDataJson);
+        $encMemberData = encryptField($memberDataJson);
+    } catch (RuntimeException $e) {
+        closeDBConnection($conn);
+        return false;
+    }
+
     $assignedToValue = $assignedTo ?: null;
 
     $stmt = $conn->prepare("UPDATE tbl_cases 
                             SET caseheader = ?, status = ?, prio = ?, taker_id = ?, case_data = ?, member_data = ?, changed = NOW() 
                             WHERE id = ?");
-    $stmt->bind_param("sssissi", $title, $status, $priority, $assignedToValue, $caseDataJson, $memberDataJson, $caseId);
+    $stmt->bind_param("sssissi", $encTitle, $status, $priority, $assignedToValue, $encCaseData, $encMemberData, $caseId);
 
     $success = $stmt->execute();
 
