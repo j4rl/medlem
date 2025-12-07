@@ -19,6 +19,7 @@ return [
     'close' => 'Close',
     'submit' => 'Submit',
     'members' => 'Members',
+    'users' => 'Users',
     'member_directory' => 'Member directory',
     'member_search_placeholder' => 'Search by name',
     'turns_50_soon' => 'Turning 50 soon',

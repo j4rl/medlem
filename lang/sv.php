@@ -18,6 +18,7 @@ return [
     'close' => 'Stäng',
     'submit' => 'Skicka',
     'members' => 'Medlemmar',
+    'users' => 'Användare',
     'member_directory' => 'Medlemsregister',
     'member_search_placeholder' => 'Sök på namn',
     'sort_by' => 'Sortera efter',

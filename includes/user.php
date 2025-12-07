@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/theme.php';
+require_once __DIR__ . '/i18n.php';
 
 // Get user settings (fallback defaults; table is optional)
 function getUserSettings($userId) {
@@ -148,5 +149,216 @@ function updateUserProfile($userId, $fullName, $email) {
     $stmt->close();
     closeDBConnection($conn);
     return ['success' => false, 'error' => 'error_general'];
+}
+
+// Update user (admin edit)
+function updateUserAdmin(int $userId, string $email, string $fullName, string $role = 'user', int $userlevel = 10, string $phone = ''): array {
+    $conn = getDBConnection();
+
+    // Email unique check
+    $stmt = $conn->prepare("SELECT id FROM tbl_users WHERE email = ? AND id != ?");
+    $stmt->bind_param("si", $email, $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result->num_rows > 0) {
+        $stmt->close();
+        closeDBConnection($conn);
+        return ['success' => false, 'error' => 'error_email_taken'];
+    }
+    $stmt->close();
+
+    $roleNormalized = strtolower(trim($role)) === 'admin' ? 'admin' : 'user';
+    $userlevel = $userlevel ?: 10;
+
+    $stmt = $conn->prepare("UPDATE tbl_users SET email = ?, name = ?, phone = ?, role = ?, userlevel = ? WHERE id = ?");
+    $stmt->bind_param("ssssii", $email, $fullName, $phone, $roleNormalized, $userlevel, $userId);
+    $success = $stmt->execute();
+    $stmt->close();
+    closeDBConnection($conn);
+
+    return ['success' => $success, 'error' => $success ? null : 'error_general'];
+}
+
+// Create user (admin)
+function createUserAdmin($username, $email, $password, $fullName, $role = 'user', $lang = 'sv', $userlevel = 10, $phone = '', $colorscheme = 1) {
+    $conn = getDBConnection();
+
+    $roleNormalized = strtolower(trim($role)) === 'admin' ? 'admin' : 'user';
+    $userlevel = (int)$userlevel ?: 10;
+
+    // Check username
+    $stmt = $conn->prepare("SELECT id FROM tbl_users WHERE username = ?");
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    if ($stmt->get_result()->num_rows > 0) {
+        $stmt->close();
+        closeDBConnection($conn);
+        return ['success' => false, 'error' => 'error_username_taken'];
+    }
+    $stmt->close();
+
+    // Check email
+    $stmt = $conn->prepare("SELECT id FROM tbl_users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    if ($stmt->get_result()->num_rows > 0) {
+        $stmt->close();
+        closeDBConnection($conn);
+        return ['success' => false, 'error' => 'error_email_taken'];
+    }
+    $stmt->close();
+
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+    $stmt = $conn->prepare("INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel, role) VALUES (?, ?, ?, ?, ?, 'default.png', ?, ?, ?, ?)");
+    $stmt->bind_param("sssssssis", $username, $email, $hashedPassword, $fullName, $phone, $lang, $colorscheme, $userlevel, $roleNormalized);
+    $ok = $stmt->execute();
+    $stmt->close();
+    closeDBConnection($conn);
+
+    return ['success' => $ok, 'error' => $ok ? null : 'error_general'];
+}
+
+// Delete user
+function deleteUserById(int $userId, ?int $currentUserId = null): bool {
+    if ($currentUserId && $currentUserId === $userId) {
+        return false; // do not allow self-delete
+    }
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("DELETE FROM tbl_users WHERE id = ?");
+    $stmt->bind_param("i", $userId);
+    $success = $stmt->execute();
+    $stmt->close();
+    closeDBConnection($conn);
+    return $success;
+}
+
+// Reset password
+function resetUserPassword(int $userId, string $newPassword): bool {
+    $conn = getDBConnection();
+    $hashed = password_hash($newPassword, PASSWORD_DEFAULT);
+    $stmt = $conn->prepare("UPDATE tbl_users SET password = ? WHERE id = ?");
+    $stmt->bind_param("si", $hashed, $userId);
+    $success = $stmt->execute();
+    $stmt->close();
+    closeDBConnection($conn);
+    return $success;
+}
+
+/**
+ * Import users from CSV.
+ * Required headers (case-insensitive): username,email,password,name
+ * Optional headers: phone,role,lang,colorscheme,userlevel
+ */
+function importUsersFromCsv(string $path, ?int $importedById = null, ?string $originalName = null): array {
+    $required = ['username', 'email', 'password', 'name'];
+    $handle = fopen($path, 'r');
+    if (!$handle) {
+        return ['success' => false, 'error' => 'error_upload_failed'];
+    }
+
+    $header = fgetcsv($handle, 0, ';');
+    if ($header === false || count($header) === 0) {
+        fclose($handle);
+        return ['success' => false, 'error' => 'missing_columns'];
+    }
+    $normalizedHeader = array_map(function ($h) {
+        return strtolower(trim($h));
+    }, $header);
+
+    $missing = array_diff($required, $normalizedHeader);
+    if (!empty($missing)) {
+        fclose($handle);
+        return ['success' => false, 'error' => 'missing_columns', 'missing' => array_values($missing)];
+    }
+
+    $conn = getDBConnection();
+    $total = $inserted = $updated = $skipped = 0;
+    $errors = [];
+
+    while (($row = fgetcsv($handle, 0, ';')) !== false) {
+        $total++;
+        if (count($row) === 1 && trim($row[0]) === '') {
+            $skipped++;
+            continue;
+        }
+
+        $data = [];
+        foreach ($normalizedHeader as $idx => $key) {
+            $data[$key] = isset($row[$idx]) ? trim($row[$idx]) : '';
+        }
+
+        $username = $data['username'] ?? '';
+        $email = $data['email'] ?? '';
+        $passwordPlain = $data['password'] ?? '';
+        $name = $data['name'] ?? '';
+
+        if ($username === '' || $email === '' || $passwordPlain === '' || $name === '') {
+            $skipped++;
+            continue;
+        }
+
+        $phone = $data['phone'] ?? '';
+        $role = $data['role'] ?? 'Användare';
+        $lang = $data['lang'] ?? 'sv';
+        $colorscheme = $data['colorscheme'] ?? 1;
+        $userlevel = (int)($data['userlevel'] ?? 10);
+
+        // Check if user exists
+        $stmt = $conn->prepare("SELECT id FROM tbl_users WHERE username = ? LIMIT 1");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $exists = $result->fetch_assoc();
+        $stmt->close();
+
+        if ($exists) {
+            $userId = (int)$exists['id'];
+            $sql = "UPDATE tbl_users SET email = ?, name = ?, phone = ?, role = ?, lang = ?, colorscheme = ?, userlevel = ?";
+            $params = [$email, $name, $phone, $role, $lang, $colorscheme, $userlevel];
+            $types = "ssssssi";
+
+            if ($passwordPlain !== '') {
+                $hashed = password_hash($passwordPlain, PASSWORD_DEFAULT);
+                $sql .= ", password = ?";
+                $params[] = $hashed;
+                $types .= "s";
+            }
+            $sql .= " WHERE id = ?";
+            $params[] = $userId;
+            $types .= "i";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param($types, ...$params);
+            if ($stmt->execute()) {
+                $updated++;
+            } else {
+                $errors[] = "Row {$total}: " . $stmt->error;
+            }
+            $stmt->close();
+        } else {
+            $hashedPassword = password_hash($passwordPlain, PASSWORD_DEFAULT);
+            $stmt = $conn->prepare("INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel, role) VALUES (?, ?, ?, ?, ?, 'default.png', ?, ?, ?, ?)");
+            $stmt->bind_param("sssssssis", $username, $email, $hashedPassword, $name, $phone, $lang, $colorscheme, $userlevel, $role);
+            if ($stmt->execute()) {
+                $inserted++;
+            } else {
+                $errors[] = "Row {$total}: " . $stmt->error;
+            }
+            $stmt->close();
+        }
+    }
+
+    fclose($handle);
+    closeDBConnection($conn);
+
+    return [
+        'success' => empty($errors),
+        'total' => $total,
+        'inserted' => $inserted,
+        'updated' => $updated,
+        'skipped' => $skipped,
+        'errors' => $errors,
+        'missing' => [],
+        'filename' => $originalName,
+    ];
 }
 ?>

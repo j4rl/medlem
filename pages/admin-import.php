@@ -1,31 +1,61 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/members.php';
+require_once __DIR__ . '/../includes/user.php';
 require_once __DIR__ . '/../includes/i18n.php';
 
 requireAdmin();
 
 $user = getCurrentUser();
 $error = '';
+$userError = '';
 $summary = null;
+$userSummary = null;
 $canImport = encryptionIsConfigured();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$canImport) {
         $error = __('encryption_not_configured');
-    } elseif (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
-        $error = __('error_upload_failed');
-    } elseif (strtolower(pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION)) !== 'csv') {
-        $error = __('error_invalid_csv');
-    } else {
-        $result = importMembersFromCsv($_FILES['csv_file']['tmp_name'], $user['id'], $_FILES['csv_file']['name']);
-        if (!empty($result['success'])) {
-            $summary = $result;
+    }
+
+    // Member import
+    if (isset($_FILES['csv_file'])) {
+        if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
+            $error = __('error_upload_failed');
+        } elseif (strtolower(pathinfo($_FILES['csv_file']['name'], PATHINFO_EXTENSION)) !== 'csv') {
+            $error = __('error_invalid_csv');
         } else {
-            $errorKey = $result['error'] ?? 'error_general';
-            $error = __($errorKey) !== $errorKey ? __($errorKey) : __('error_general');
-            if (!empty($result['missing'])) {
-                $error .= ': ' . implode(', ', $result['missing']);
+            $result = importMembersFromCsv($_FILES['csv_file']['tmp_name'], $user['id'], $_FILES['csv_file']['name']);
+            if (!empty($result['success'])) {
+                $summary = $result;
+            } else {
+                $errorKey = $result['error'] ?? 'error_general';
+                $error = __($errorKey) !== $errorKey ? __($errorKey) : __('error_general');
+                if (!empty($result['missing'])) {
+                    $error .= ': ' . implode(', ', $result['missing']);
+                }
+            }
+        }
+    }
+
+    // User import
+    if (isset($_FILES['user_csv_file'])) {
+        if ($_FILES['user_csv_file']['error'] !== UPLOAD_ERR_OK) {
+            $userError = __('error_upload_failed');
+        } elseif (strtolower(pathinfo($_FILES['user_csv_file']['name'], PATHINFO_EXTENSION)) !== 'csv') {
+            $userError = __('error_invalid_csv');
+        } else {
+            $result = importUsersFromCsv($_FILES['user_csv_file']['tmp_name'], $user['id'], $_FILES['user_csv_file']['name']);
+            if (!empty($result['success'])) {
+                $userSummary = $result;
+            } else {
+                $userError = __('error_general');
+                if (!empty($result['missing'])) {
+                    $userError .= ': ' . implode(', ', $result['missing']);
+                }
+                if (!empty($result['errors'])) {
+                    $userError .= ' ' . implode('; ', $result['errors']);
+                }
             }
         }
     }
@@ -89,6 +119,51 @@ include __DIR__ . '/../includes/header.php';
                 </div>
 
                 <button type="submit" class="btn btn-primary" <?php echo $canImport ? '' : 'disabled'; ?>>
+                    <?php echo __('import_csv_action'); ?>
+                </button>
+            </form>
+        </div>
+
+        <div class="card mt-3">
+            <div class="section-header">
+                <div>
+                    <p class="eyebrow"><?php echo __('admin'); ?></p>
+                    <h2><?php echo __('users'); ?> CSV</h2>
+                    <p class="muted">Headers (semicolon separated): <code>username;email;password;name;phone;role;lang;colorscheme;userlevel</code></p>
+                </div>
+            </div>
+
+            <?php if ($userError): ?>
+                <div class="alert alert-error"><?php echo htmlspecialchars($userError); ?></div>
+            <?php endif; ?>
+
+            <?php if ($userSummary): ?>
+                <div class="alert alert-success">
+                    <?php echo sprintf(__('import_result_line'), $userSummary['total'], $userSummary['inserted'], $userSummary['updated'], $userSummary['skipped']); ?>
+                    <?php if (!empty($userSummary['errors'])): ?>
+                        <br><?php echo __('import_result_errors'); ?>
+                        <ul style="margin-top: 0.5rem;">
+                            <?php foreach (array_slice($userSummary['errors'], 0, 5) as $msg): ?>
+                                <li><?php echo htmlspecialchars($msg); ?></li>
+                            <?php endforeach; ?>
+                            <?php if (count($userSummary['errors']) > 5): ?>
+                                <li><?php echo sprintf(__('import_result_more_errors'), count($userSummary['errors']) - 5); ?></li>
+                            <?php endif; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
+            <form method="POST" action="" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label class="form-label" for="user_csv_file">CSV (users)</label>
+                    <input type="file" id="user_csv_file" name="user_csv_file" class="form-input" accept=".csv" required>
+                    <p class="muted" style="margin-top: 0.5rem;">
+                        Example row: <code>jsmith;john@example.com;Secret123;John Smith;0700000000;Admin;sv;1;10</code>
+                    </p>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
                     <?php echo __('import_csv_action'); ?>
                 </button>
             </form>

@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/theme.php';
 
 $currentUser = getCurrentUser();
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
-$isAdminSection = in_array($currentPage, ['admin-import', 'admin-themes'], true);
+$isAdminSection = in_array($currentPage, ['admin-import', 'admin-themes', 'admin-users'], true);
 
 // Load user settings if logged in
 $userSettings = null;
@@ -29,6 +29,19 @@ $themeStyles = renderThemeStyles($activeTheme);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo __('app_name'); ?></title>
+    <?php if (!$currentUser): ?>
+        <script>
+            (function() {
+                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+                if (window.matchMedia) {
+                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+                        document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+                    });
+                }
+            })();
+        </script>
+    <?php endif; ?>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
     <?php echo $themeStyles; ?>
 </head>
@@ -56,6 +69,9 @@ $themeStyles = renderThemeStyles($activeTheme);
                         <div id="adminDropdown" class="dropdown dropdown-nav">
                             <a href="<?php echo BASE_URL; ?>/pages/admin-import.php" class="<?php echo $currentPage === 'admin-import' ? 'active' : ''; ?>">
                                 <?php echo __('member_import'); ?>
+                            </a>
+                            <a href="<?php echo BASE_URL; ?>/pages/admin-users.php" class="<?php echo $currentPage === 'admin-users' ? 'active' : ''; ?>">
+                                <?php echo __('users'); ?>
                             </a>
                             <a href="<?php echo BASE_URL; ?>/pages/admin-themes.php" class="<?php echo $currentPage === 'admin-themes' ? 'active' : ''; ?>">
                                 <?php echo __('themes'); ?>
