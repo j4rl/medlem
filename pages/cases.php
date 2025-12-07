@@ -75,7 +75,7 @@ include __DIR__ . '/../includes/header.php';
                 </thead>
                 <tbody>
                     <?php foreach ($cases as $case): ?>
-                    <tr onclick="window.location.href='case-view.php?id=<?php echo $case['id']; ?>'" style="cursor: pointer;">
+                    <tr onclick="window.location.href='case-edit.php?id=<?php echo $case['id']; ?>'" style="cursor: pointer;">
                         <td><?php echo htmlspecialchars($case['case_number']); ?></td>
                         <td><?php echo htmlspecialchars($case['title']); ?></td>
                         <td><?php echo htmlspecialchars($case['creator_name']); ?></td>
@@ -113,7 +113,7 @@ include __DIR__ . '/../includes/header.php';
                                 <div><?php echo htmlspecialchars($case['title']); ?></div>
                                 <small class="muted"><?php echo htmlspecialchars($case['case_number']); ?></small>
                             </div>
-                            <a class="btn btn-link btn-sm" href="case-view.php?id=<?php echo $case['id']; ?>"><?php echo __('details'); ?></a>
+                            <a class="btn btn-link btn-sm" href="case-edit.php?id=<?php echo $case['id']; ?>"><?php echo __('details'); ?></a>
                         </li>
                     <?php endforeach; ?>
                 </ul>
@@ -130,7 +130,7 @@ include __DIR__ . '/../includes/header.php';
                                 <div><?php echo htmlspecialchars($case['title']); ?></div>
                                 <small class="muted"><?php echo htmlspecialchars($case['assignee_name'] ?: '-'); ?></small>
                             </div>
-                            <a class="btn btn-link btn-sm" href="case-view.php?id=<?php echo $case['id']; ?>"><?php echo __('details'); ?></a>
+                            <a class="btn btn-link btn-sm" href="case-edit.php?id=<?php echo $case['id']; ?>"><?php echo __('details'); ?></a>
                         </li>
                     <?php endforeach; ?>
                 </ul>

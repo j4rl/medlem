@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/i18n.php';
 require_once __DIR__ . '/../includes/cases.php';
 requireLogin();
 
@@ -42,15 +43,11 @@ $caseDataRaw = $_POST['case_data'] ?? '';
             'member_lookup' => $memberLookup,
         ]);
 
-        $memberData = null;
-        if (!empty($memberDataRaw)) {
-            $memberDataDecoded = json_decode($memberDataRaw, true);
-            $memberData = json_last_error() === JSON_ERROR_NONE ? $memberDataDecoded : $memberDataRaw;
-        }
+        $memberData = $memberDataRaw !== '' ? $memberDataRaw : null;
 
         $result = createCase($title, $description, $priority, $user['id'], $assignedTo, $caseData, $memberData);
         if ($result['success']) {
-            header('Location: case-view.php?id=' . $result['case_id']);
+            header('Location: case-edit.php?id=' . $result['case_id']);
             exit();
         } else {
             $error = __('error_general');
@@ -145,8 +142,12 @@ include __DIR__ . '/../includes/header.php';
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="member_data"><?php echo __('member_data'); ?></label>
-                    <textarea id="member_data" name="member_data" class="form-textarea" rows="3" placeholder="JSON..." spellcheck="false"><?php echo htmlspecialchars($_POST['member_data'] ?? ''); ?></textarea>
+                    <div class="flex-between" style="align-items: center; gap: 0.5rem;">
+                        <label class="form-label" for="member_data"><?php echo __('member_data'); ?></label>
+                        <button type="button" class="btn btn-secondary btn-sm" id="memberPickerCreate">Sök medlem &amp; kopiera</button>
+                    </div>
+                    <textarea id="member_data" name="member_data" class="form-textarea" rows="3" placeholder="<?php echo __('member_data'); ?>..." spellcheck="false"><?php echo htmlspecialchars($_POST['member_data'] ?? ''); ?></textarea>
+                    <p class="muted" style="margin-top: 0.35rem;">Sparas som fri text.</p>
                 </div>
 
                 <div class="form-group">
@@ -198,6 +199,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const formatMemberText = (member) => {
+        if (!member || typeof member !== 'object') return '';
+        const fields = [
+            ['Namn', member.namn],
+            ['Medlemsnr', member.medlnr],
+            ['Förening', member.forening],
+            ['Befattning', member.befattning],
+            ['Medlemsform', member.medlemsform],
+            ['Verksamhetsform', member.verksamhetsform],
+            ['Arbetsplats', member.arbetsplats],
+        ];
+        return fields
+            .filter(([, val]) => val && String(val).trim() !== '')
+            .map(([label, val]) => `${label}: ${val}`)
+            .join('\n');
+    };
+
     if (fetchBtn) {
         fetchBtn.addEventListener('click', async () => {
             const id = memberLookup.value;
@@ -208,7 +226,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res = await fetch(`member-fetch.php?id=${encodeURIComponent(id)}`);
                 const data = await res.json();
                 if (data.success && data.member) {
-                    insertAtCaret(memberField, JSON.stringify(data.member, null, 2));
+                    const text = formatMemberText(data.member);
+                    insertAtCaret(memberField, text || JSON.stringify(data.member, null, 2));
                 } else {
                     alert(data.error || 'Member not found');
                 }
@@ -240,6 +259,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         caseDataField.value = JSON.stringify(payload);
+    });
+
+    window.addEventListener('load', () => {
+        if (window.initMemberPicker) {
+            window.initMemberPicker('#memberPickerCreate');
+        }
     });
 });
 </script>

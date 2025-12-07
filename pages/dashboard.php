@@ -136,7 +136,7 @@ include __DIR__ . '/../includes/header.php';
                 <?php if (count($submittedCases) > 0): ?>
                     <div class="case-list">
                         <?php foreach ($submittedCases as $case): ?>
-                            <div class="case-row" onclick="window.location.href='case-view.php?id=<?php echo $case['id']; ?>'">
+                            <div class="case-row" onclick="window.location.href='case-edit.php?id=<?php echo $case['id']; ?>'">
                                 <div>
                                     <p class="case-title"><?php echo htmlspecialchars($case['title']); ?></p>
                                     <p class="muted"><?php echo htmlspecialchars($case['case_number']); ?> • <?php echo date('Y-m-d H:i', strtotime($case['created_at'])); ?></p>
@@ -161,7 +161,7 @@ include __DIR__ . '/../includes/header.php';
                 <?php if (count($assignedCases) > 0): ?>
                     <div class="case-list">
                         <?php foreach ($assignedCases as $case): ?>
-                            <div class="case-row" onclick="window.location.href='case-view.php?id=<?php echo $case['id']; ?>'">
+                            <div class="case-row" onclick="window.location.href='case-edit.php?id=<?php echo $case['id']; ?>'">
                                 <div>
                                     <p class="case-title"><?php echo htmlspecialchars($case['title']); ?></p>
                                     <p class="muted"><?php echo htmlspecialchars($case['case_number']); ?> • <?php echo htmlspecialchars($case['creator_name']); ?></p>

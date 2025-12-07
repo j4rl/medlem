@@ -120,18 +120,17 @@ function formatMemberData($memberData = null) {
         return null;
     }
 
-    if (is_string($memberData) && trim($memberData) !== '') {
-        $decoded = json_decode($memberData, true);
-        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-            $memberData = $decoded;
-        }
+    // Keep plain text as-is
+    if (is_string($memberData)) {
+        return $memberData;
     }
 
-    if (!is_array($memberData)) {
-        return (string)$memberData;
+    // Encode arrays/objects, everything else coerced to string
+    if (is_array($memberData) || is_object($memberData)) {
+        return json_encode($memberData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    return json_encode($memberData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    return (string)$memberData;
 }
 
 function mapCaseRow($row) {

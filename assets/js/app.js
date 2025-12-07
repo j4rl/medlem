@@ -171,3 +171,209 @@ function filterTable(inputId, tableId) {
         });
     });
 }
+
+// Member picker popover (search + copy to clipboard)
+(function() {
+    if (window.initMemberPicker) return;
+
+    function copyToClipboard(text, onDone) {
+        if (!text) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(onDone).catch(() => {
+                fallbackCopy(text);
+                onDone && onDone();
+            });
+        } else {
+            fallbackCopy(text);
+            onDone && onDone();
+        }
+    }
+
+    function fallbackCopy(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.top = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(textarea);
+    }
+
+    function buildMemberCard(member, onCopy) {
+        const div = document.createElement('div');
+        div.className = 'member-hit';
+
+        const meta = document.createElement('div');
+        meta.className = 'member-hit__meta';
+        meta.innerHTML = `
+            <strong>${member.namn || ''}</strong><br>
+            <span class="muted">${member.medlnr || ''}</span>
+            ${member.forening ? `<div class="muted">${member.forening}</div>` : ''}
+            ${member.befattning ? `<div class="muted">${member.befattning}</div>` : ''}
+        `;
+
+        const pickableFields = [
+            { key: 'namn', label: 'Namn', value: member.namn || '' },
+            { key: 'medlnr', label: 'Nr', value: member.medlnr || '' },
+            { key: 'forening', label: 'Förening', value: member.forening || '' },
+            { key: 'befattning', label: 'Befattning', value: member.befattning || '' },
+            { key: 'medlemsform', label: 'Medlemsform', value: member.medlemsform || '' },
+            { key: 'verksamhetsform', label: 'Verksamhetsform', value: member.verksamhetsform || '' },
+            { key: 'arbetsplats', label: 'Arbetsplats', value: member.arbetsplats || '' },
+        ].filter(f => f.value && f.value !== '');
+
+        const checks = document.createElement('div');
+        checks.className = 'member-hit__checks';
+
+        pickableFields.forEach(f => {
+            const id = `chk-${f.key}-${Math.random().toString(36).slice(2)}`;
+            const label = document.createElement('label');
+            label.className = 'member-hit__check';
+            label.innerHTML = `<input type="checkbox" data-value="${f.value}" id="${id}"> ${f.label}`;
+            checks.appendChild(label);
+        });
+
+        const actions = document.createElement('div');
+        actions.className = 'member-hit__actions';
+
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'btn btn-primary btn-sm';
+        copyBtn.textContent = 'Copy';
+        copyBtn.addEventListener('click', () => {
+            const checked = Array.from(checks.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.dataset.value || '').filter(Boolean);
+            let text = '';
+
+            if (checked.length > 0) {
+                text = checked.join('\n');
+            } else {
+                const parts = [];
+                if (member.namn) parts.push(member.namn);
+                if (member.medlnr) parts.push(`(${member.medlnr})`);
+                if (member.forening) parts.push(`- ${member.forening}`);
+                text = parts.join(' ').trim() || JSON.stringify(member, null, 2);
+            }
+
+            copyToClipboard(text, () => {
+                copyBtn.disabled = true;
+                const original = copyBtn.textContent;
+                copyBtn.textContent = 'Copied';
+                setTimeout(() => {
+                    copyBtn.disabled = false;
+                    copyBtn.textContent = original;
+                }, 900);
+                onCopy && onCopy();
+            });
+        });
+
+        actions.appendChild(copyBtn);
+
+        div.appendChild(meta);
+        if (pickableFields.length > 0) {
+            div.appendChild(checks);
+        }
+        div.appendChild(actions);
+        return div;
+    }
+
+    function renderResults(container, results, onCopy) {
+        container.innerHTML = '';
+        if (!results || results.length === 0) {
+            container.innerHTML = '<p class="muted" style="margin: 0;">Inga träffar.</p>';
+            return;
+        }
+        results.forEach(member => {
+            container.appendChild(buildMemberCard(member, onCopy));
+        });
+    }
+
+    function createPopover() {
+        const overlay = document.createElement('div');
+        overlay.className = 'member-popover-backdrop';
+        overlay.innerHTML = `
+            <div class="member-popover" role="dialog" aria-modal="true">
+                <div class="member-popover__header">
+                    <div>
+                        <p class="eyebrow">Medlem</p>
+                        <h3 style="margin: 0;">Sök och kopiera</h3>
+                        <p class="muted" style="margin: 0;">Sök efter medlem, kopiera valda fält till urklipp.</p>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm member-popover__close" aria-label="Close">&times;</button>
+                </div>
+                <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <input type="text" class="form-input" id="memberPopoverSearch" placeholder="Skriv namn eller medlemsnr..." autocomplete="off">
+                </div>
+                <div class="member-popover__results" id="memberPopoverResults">
+                    <p class="muted" style="margin: 0;">Börja skriva för att söka.</p>
+                </div>
+            </div>
+        `;
+
+        const popover = overlay.querySelector('.member-popover');
+        const searchInput = overlay.querySelector('#memberPopoverSearch');
+        const closeBtn = overlay.querySelector('.member-popover__close');
+        const resultsBox = overlay.querySelector('#memberPopoverResults');
+        let debounceTimer = null;
+
+        function close() {
+            overlay.remove();
+        }
+
+        function handleSearch(value) {
+            const q = value.trim();
+            if (q.length < 2) {
+                resultsBox.innerHTML = '<p class="muted" style="margin: 0;">Minst 2 tecken för att söka.</p>';
+                return;
+            }
+
+            resultsBox.innerHTML = '<p class="muted" style="margin: 0;">Söker...</p>';
+
+            fetch(`member-search.php?q=${encodeURIComponent(q)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        resultsBox.innerHTML = `<p class="muted" style="margin: 0;">${data.error || 'Kunde inte hämta medlemmar.'}</p>`;
+                        return;
+                    }
+                    renderResults(resultsBox, data.results, () => searchInput.focus());
+                })
+                .catch(() => {
+                    resultsBox.innerHTML = '<p class="muted" style="margin: 0;">Något gick fel vid sökningen.</p>';
+                });
+        }
+
+        closeBtn.addEventListener('click', close);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+        });
+
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => handleSearch(e.target.value), 250);
+        });
+
+        setTimeout(() => searchInput.focus(), 50);
+
+        return {
+            open: () => document.body.appendChild(overlay),
+            close
+        };
+    }
+
+    window.initMemberPicker = function(selector) {
+        const triggers = typeof selector === 'string'
+            ? document.querySelectorAll(selector)
+            : (selector instanceof Element ? [selector] : Array.from(selector || []));
+
+        triggers.forEach(trigger => {
+            if (!trigger || trigger.dataset.memberPickerBound === '1') return;
+            trigger.dataset.memberPickerBound = '1';
+
+            trigger.addEventListener('click', () => {
+                const popover = createPopover();
+                popover.open();
+            });
+        });
+    };
+})();
