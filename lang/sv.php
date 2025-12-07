@@ -19,6 +19,7 @@ return [
     'submit' => 'Skicka',
     'members' => 'Medlemmar',
     'users' => 'Användare',
+    'new_user' => 'Ny användare',
     'member_directory' => 'Medlemsregister',
     'member_search_placeholder' => 'Sök på namn',
     'sort_by' => 'Sortera efter',

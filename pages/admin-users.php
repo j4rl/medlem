@@ -122,7 +122,7 @@ include __DIR__ . '/../includes/header.php';
                     <p class="muted">Hantera användare, skapa nya, återställ lösenord och ta bort.</p>
                 </div>
                 <div class="hero-actions">
-                    <a class="btn btn-primary btn-sm" href="admin-users.php?view=create"><?php echo __('create_case'); ?></a>
+                    <a class="btn btn-primary btn-sm" href="admin-users.php?view=create"><?php echo __('new_user'); ?></a>
                     <a class="btn btn-secondary btn-sm" href="admin-import.php#users-import"><?php echo __('import_csv_action'); ?></a>
                 </div>
             </div>
@@ -176,7 +176,7 @@ include __DIR__ . '/../includes/header.php';
                             <input type="number" id="userlevel" name="userlevel" class="form-input" value="10">
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary"><?php echo __('create_case'); ?></button>
+                    <button type="submit" class="btn btn-primary"><?php echo __('new_user'); ?></button>
                     <a href="admin-users.php" class="btn btn-secondary"><?php echo __('cancel'); ?></a>
                 </form>
             <?php endif; ?>
