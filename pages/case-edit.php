@@ -13,6 +13,15 @@ if (!$case) {
     exit();
 }
 
+$backUrl = 'cases.php';
+if (!empty($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], 'case-edit.php') === false) {
+    $backUrl = $_SERVER['HTTP_REFERER'];
+}
+
+$statusOptions = getStatusOptions();
+$priorityOptions = getPriorityOptions();
+$allUsers = getAllUsers();
+
 function normalizeEntries(array $caseData, array $case): array {
     $entries = [];
     $source = $caseData['entries'] ?? ($caseData['sections'] ?? []);
@@ -38,7 +47,7 @@ function normalizeEntries(array $caseData, array $case): array {
     }
 
     usort($entries, function ($a, $b) {
-        return (strtotime($b['changed_at'] ?? '') ?: 0) <=> (strtotime($a['changed_at'] ?? '') ?: 0);
+        return (strtotime($a['changed_at'] ?? '') ?: 0) <=> (strtotime($b['changed_at'] ?? '') ?: 0);
     });
 
     return array_values($entries);
@@ -71,28 +80,37 @@ $success = isset($_GET['updated']) ? __('status_in_progress') : '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $noteValue = trim($_POST['case_note'] ?? '');
     $memberDataRaw = $_POST['member_data'] ?? '';
+    $newStatus = normalizeStatusValue($_POST['status'] ?? $case['status'], $case['status']);
+    $newPriority = normalizePriorityValue($_POST['priority'] ?? $case['priority'], $case['priority']);
+    $newAssignee = isset($_POST['assigned_to']) && $_POST['assigned_to'] !== '' ? (int)$_POST['assigned_to'] : null;
+    $case['status'] = $newStatus;
+    $case['priority'] = $newPriority;
+    $case['assigned_to'] = $newAssignee;
 
-    $newCaseData = $caseData;
-    if (!isset($newCaseData['entries']) || !is_array($newCaseData['entries'])) {
-        $newCaseData['entries'] = [];
-    }
+    // Normalize existing entries so the original body is preserved, then append the new note
+    $existingEntries = normalizeEntries($caseData, $case);
+    $newEntries = $existingEntries;
 
     if ($noteValue !== '') {
-        $newCaseData['entries'][] = [
-            'id' => 'entry-' . (count($newCaseData['entries']) + 1) . '-' . substr(sha1(uniqid('', true)), 0, 6),
+        $newEntries[] = [
+            'id' => 'entry-' . (count($newEntries) + 1) . '-' . substr(sha1(uniqid('', true)), 0, 6),
             'body' => $noteValue,
             'changed_at' => date('c'),
             'author_name' => $user['full_name'] ?? ($user['username'] ?? ''),
         ];
     }
 
-    $newCaseData = buildCaseDataPayload($newCaseData, $noteValue ?: ($caseData['case_body'] ?? $case['description'] ?? ''));
+    $newCaseData = $caseData;
+    $newCaseData['entries'] = $newEntries;
+    $latestBody = $noteValue !== '' ? $noteValue : ($newEntries ? end($newEntries)['body'] : ($caseData['case_body'] ?? $case['description'] ?? ''));
+    $newCaseData['last_edited_at'] = date('c');
+    $newCaseData = buildCaseDataPayload($newCaseData, $latestBody);
 
     $memberData = ($memberDataRaw !== '') ? $memberDataRaw : ($case['member_data'] ?? '');
 
     $description = $case['description'] ?? '';
 
-    if (updateCase($caseId, $case['title'], $description, $case['status'], $case['priority'], $case['assigned_to'], $newCaseData, $memberData)) {
+    if (updateCase($caseId, $case['title'], $description, $newStatus, $newPriority, $newAssignee, $newCaseData, $memberData)) {
         header('Location: case-edit.php?id=' . $caseId . '&updated=1');
         exit();
     } else {
@@ -109,25 +127,64 @@ include __DIR__ . '/../includes/header.php';
 <main class="main-content">
     <div class="container">
         <div class="card mt-3 case-builder">
+            <form method="POST" action="">
             <div class="section-header">
                 <div>
                     <p class="eyebrow"><?php echo __('edit'); ?> <?php echo __('case'); ?></p>
                     <h1><?php echo htmlspecialchars($case['case_number']); ?></h1>
+                    <div class="flex gap-2" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap;">
+                        <span class="badge badge-<?php echo htmlspecialchars($case['status']); ?>"><?php echo __('status_' . $case['status']); ?></span>
+                        <span class="badge badge-<?php echo htmlspecialchars($case['priority']); ?>"><?php echo __('priority_' . $case['priority']); ?></span>
+                    </div>
                     <p class="muted"><?php echo __('case_body'); ?> + JSON-data sparas i <code>case_data</code>.</p>
                 </div>
                 <div class="hero-actions">
-                    <a href="case-edit.php?id=<?php echo $caseId; ?>" class="btn btn-secondary btn-sm"><?php echo __('back'); ?></a>
+                    <a href="<?php echo htmlspecialchars($backUrl); ?>" class="btn btn-secondary btn-sm"><?php echo __('back'); ?></a>
                 </div>
             </div>
 
             <div class="card" style="margin-top: 0; margin-bottom: 1rem;">
-                <div class="meta-grid" style="grid-template-columns: repeat(2, minmax(0,1fr));">
+                <div class="meta-grid" style="grid-template-columns: repeat(3, minmax(0,1fr)); gap: 1rem;">
                     <div><strong><?php echo __('case_number'); ?></strong><br><?php echo htmlspecialchars($case['case_number']); ?></div>
                     <div><strong><?php echo __('title'); ?></strong><br><?php echo htmlspecialchars($case['title']); ?></div>
                     <div><strong><?php echo __('created_at'); ?></strong><br><?php echo date('Y-m-d H:i', strtotime($case['created_at'])); ?></div>
-                    <div><strong><?php echo __('assigned_to'); ?></strong><br><?php echo htmlspecialchars($case['assignee_name'] ?? '-'); ?></div>
-                    <div><strong><?php echo __('status'); ?></strong><br><?php echo __('status_' . $case['status']); ?></div>
-                    <div><strong><?php echo __('priority'); ?></strong><br><?php echo __('priority_' . $case['priority']); ?></div>
+                    <div>
+                        <label class="form-label" for="assigned_to">Handläggare</label>
+                        <select id="assigned_to" name="assigned_to" class="form-input">
+                            <option value=""><?php echo __('assigned_to'); ?>...</option>
+                            <?php foreach ($allUsers as $assignee): ?>
+                                <option value="<?php echo (int)$assignee['id']; ?>" <?php echo ($case['assigned_to'] ?? null) == $assignee['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($assignee['full_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" for="status"><?php echo __('status'); ?></label>
+                        <select id="status" name="status" class="form-input">
+                            <?php foreach ($statusOptions as $code => $label): ?>
+                                <option value="<?php echo htmlspecialchars($code); ?>" <?php echo $case['status'] === $code ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($label); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="muted" style="margin-top: 0.35rem;">
+                            <span class="badge badge-<?php echo htmlspecialchars($case['status']); ?>"><?php echo __('status_' . $case['status']); ?></span>
+                        </p>
+                    </div>
+                    <div>
+                        <label class="form-label" for="priority"><?php echo __('priority'); ?></label>
+                        <select id="priority" name="priority" class="form-input">
+                            <?php foreach ($priorityOptions as $code => $label): ?>
+                                <option value="<?php echo htmlspecialchars($code); ?>" <?php echo $case['priority'] === $code ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($label); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="muted" style="margin-top: 0.35rem;">
+                            <span class="badge badge-<?php echo htmlspecialchars($case['priority']); ?>"><?php echo __('priority_' . $case['priority']); ?></span>
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -137,8 +194,6 @@ include __DIR__ . '/../includes/header.php';
             <?php if ($success): ?>
                 <div class="alert alert-success"><?php echo $success; ?></div>
             <?php endif; ?>
-
-            <form method="POST" action="">
                 <div class="form-group">
                     <div class="flex-between" style="align-items: center; gap: 0.5rem;">
                         <label class="form-label" for="member_data"><?php echo __('member_data'); ?></label>

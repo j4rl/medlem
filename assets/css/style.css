@@ -430,47 +430,69 @@ main {
     border-radius: 9999px;
     font-size: 0.875rem;
     font-weight: 500;
+    position: relative;
+    --dot-color: currentColor;
+
+    &::before {
+        content: '';
+        display: inline-block;
+        width: 0.6rem;
+        height: 0.6rem;
+        margin-right: 0.4rem;
+        border-radius: 50%;
+        background-color: var(--dot-color);
+        vertical-align: middle;
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--dot-color) 70%, var(--surface));
+    }
 
     &-no_action,
     &-no-action {
         background-color: #dbeafe;
         color: #1e40af;
+        --dot-color: #22c55e; /* match meter open */
     }
 
     &-in-progress,
     &-in_progress {
         background-color: #fef3c7;
         color: #92400e;
+        --dot-color: #22c55e; /* match meter open */
     }
 
     &-resolved {
         background-color: #d1fae5;
         color: #065f46;
+        --dot-color: #0ea5e9; /* match meter resolved */
     }
 
     &-closed {
         background-color: #e5e7eb;
         color: #374151;
+        --dot-color: #a855f7; /* match meter closed */
     }
 
     &-low {
         background-color: #f3f4f6;
         color: #4b5563;
+        --dot-color: #f3f4f6;
     }
 
     &-medium {
         background-color: #dbeafe;
         color: #1e40af;
+        --dot-color: #dbeafe;
     }
 
     &-high {
         background-color: #fef3c7;
         color: #92400e;
+        --dot-color: #fef3c7;
     }
 
     &-urgent {
         background-color: #fee2e2;
         color: #991b1b;
+        --dot-color: #fee2e2;
     }
 }
 

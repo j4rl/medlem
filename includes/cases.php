@@ -231,8 +231,8 @@ function getAllCases($userId = null, $status = null, $scope = 'related') {
     $conn = getDBConnection();
 
     $sql = "SELECT c.*, 
-                   u1.name AS creator_name, u1.pic AS creator_picture,
-                   u2.name AS assignee_name, u2.pic AS assignee_picture
+                   u1.name AS creator_name, COALESCE(NULLIF(u1.pic, ''), 'default.png') AS creator_picture,
+                   u2.name AS assignee_name, COALESCE(NULLIF(u2.pic, ''), 'default.png') AS assignee_picture
             FROM tbl_cases c
             LEFT JOIN tbl_users u1 ON c.user_id = u1.id
             LEFT JOIN tbl_users u2 ON c.taker_id = u2.id
@@ -294,8 +294,8 @@ function getCaseById($caseId) {
     $conn = getDBConnection();
 
     $stmt = $conn->prepare("SELECT c.*, 
-                                   u1.name AS creator_name, u1.pic AS creator_picture, 
-                                   u2.name AS assignee_name, u2.pic AS assignee_picture
+                                   u1.name AS creator_name, COALESCE(NULLIF(u1.pic, ''), 'default.png') AS creator_picture, 
+                                   u2.name AS assignee_name, COALESCE(NULLIF(u2.pic, ''), 'default.png') AS assignee_picture
                             FROM tbl_cases c
                             LEFT JOIN tbl_users u1 ON c.user_id = u1.id
                             LEFT JOIN tbl_users u2 ON c.taker_id = u2.id
@@ -383,7 +383,7 @@ function addCaseComment($caseId, $userId, $comment) {
 function getCaseComments($caseId) {
     $conn = getDBConnection();
 
-    $stmt = $conn->prepare("SELECT cc.*, u.name AS full_name, u.pic AS profile_picture 
+    $stmt = $conn->prepare("SELECT cc.*, u.name AS full_name, COALESCE(NULLIF(u.pic, ''), 'default.png') AS profile_picture 
                             FROM case_comments cc 
                             JOIN tbl_users u ON cc.user_id = u.id 
                             WHERE cc.case_id = ? 

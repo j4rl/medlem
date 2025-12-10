@@ -93,7 +93,7 @@ medlem/
 
 ## Bidra
 
-Bidrag är välkomna! Skapa en pull request med dina ändringar.
+Bidrag är välkomna! Skapa en pullrequest med dina ändringar.
 
 ## Licens
 

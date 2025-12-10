@@ -112,6 +112,10 @@ include __DIR__ . '/../includes/header.php';
                             <div>
                                 <div><?php echo htmlspecialchars($case['title']); ?></div>
                                 <small class="muted"><?php echo htmlspecialchars($case['case_number']); ?></small>
+                                <div class="flex gap-1" style="margin-top: 4px; flex-wrap: wrap;">
+                                    <span class="badge badge-<?php echo $case['status']; ?>"><?php echo __('status_' . $case['status']); ?></span>
+                                    <span class="badge badge-<?php echo $case['priority']; ?>"><?php echo __('priority_' . $case['priority']); ?></span>
+                                </div>
                             </div>
                             <a class="btn btn-link btn-sm" href="case-edit.php?id=<?php echo $case['id']; ?>"><?php echo __('details'); ?></a>
                         </li>
@@ -129,6 +133,10 @@ include __DIR__ . '/../includes/header.php';
                             <div>
                                 <div><?php echo htmlspecialchars($case['title']); ?></div>
                                 <small class="muted"><?php echo htmlspecialchars($case['assignee_name'] ?: '-'); ?></small>
+                                <div class="flex gap-1" style="margin-top: 4px; flex-wrap: wrap;">
+                                    <span class="badge badge-<?php echo $case['status']; ?>"><?php echo __('status_' . $case['status']); ?></span>
+                                    <span class="badge badge-<?php echo $case['priority']; ?>"><?php echo __('priority_' . $case['priority']); ?></span>
+                                </div>
                             </div>
                             <a class="btn btn-link btn-sm" href="case-edit.php?id=<?php echo $case['id']; ?>"><?php echo __('details'); ?></a>
                         </li>
