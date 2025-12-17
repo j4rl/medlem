@@ -95,6 +95,17 @@ CREATE TABLE IF NOT EXISTS tbl_cases (
     FOREIGN KEY (taker_id) REFERENCES tbl_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Case handlers table (many-to-many assignments)
+CREATE TABLE IF NOT EXISTS case_handlers (
+    case_id INT NOT NULL,
+    user_id INT NOT NULL,
+    assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (case_id, user_id),
+    INDEX idx_case_handlers_user (user_id),
+    FOREIGN KEY (case_id) REFERENCES tbl_cases(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES tbl_users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Members table (encrypted at rest; all columns except id/medlnr stored as ciphertext)
 CREATE TABLE IF NOT EXISTS tbl_members (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -137,5 +148,5 @@ CREATE TABLE IF NOT EXISTS case_comments (
 
 -- Insert a default admin user (password: admin123)
 INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel, role) 
-VALUES ('admin', 'admin@exempel.se', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrator', '', 'default.png', 'sv', 1, 10, 'Admin')
+VALUES ('admin', 'admin@exempel.se', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrator', '', 'default.png', 'sv', 1, 1000, 'Admin')
 ON DUPLICATE KEY UPDATE username=username;

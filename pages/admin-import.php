@@ -129,7 +129,7 @@ include __DIR__ . '/../includes/header.php';
                 <div>
                     <p class="eyebrow"><?php echo __('admin'); ?></p>
                     <h2><?php echo __('users'); ?> CSV</h2>
-                    <p class="muted">Headers (semicolon separated): <code>username;email;password;name;phone;role;lang;colorscheme;userlevel</code></p>
+                    <p class="muted">Headers (semicolon separated): <code>username;email;password;name;phone;lang;colorscheme;userlevel</code></p>
                 </div>
             </div>
 
@@ -159,7 +159,7 @@ include __DIR__ . '/../includes/header.php';
                     <label class="form-label" for="user_csv_file">CSV (users)</label>
                     <input type="file" id="user_csv_file" name="user_csv_file" class="form-input" accept=".csv" required>
                     <p class="muted" style="margin-top: 0.5rem;">
-                        Example row: <code>jsmith;john@example.com;Secret123;John Smith;0700000000;Admin;sv;1;10</code>
+                        Example row: <code>jsmith;john@example.com;Secret123;John Smith;0700000000;sv;1;10</code> (1000 for admin)
                     </p>
                 </div>
 

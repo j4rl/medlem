@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/theme.php';
@@ -152,7 +152,7 @@ function updateUserProfile($userId, $fullName, $email) {
 }
 
 // Update user (admin edit)
-function updateUserAdmin(int $userId, string $email, string $fullName, string $role = 'user', int $userlevel = 10, string $phone = ''): array {
+function updateUserAdmin(int $userId, string $email, string $fullName, int $userlevel = 10, string $phone = ''): array {
     $conn = getDBConnection();
 
     // Email unique check
@@ -167,11 +167,10 @@ function updateUserAdmin(int $userId, string $email, string $fullName, string $r
     }
     $stmt->close();
 
-    $roleNormalized = strtolower(trim($role)) === 'admin' ? 'admin' : 'user';
     $userlevel = $userlevel ?: 10;
 
-    $stmt = $conn->prepare("UPDATE tbl_users SET email = ?, name = ?, phone = ?, role = ?, userlevel = ? WHERE id = ?");
-    $stmt->bind_param("ssssii", $email, $fullName, $phone, $roleNormalized, $userlevel, $userId);
+    $stmt = $conn->prepare("UPDATE tbl_users SET email = ?, name = ?, phone = ?, userlevel = ? WHERE id = ?");
+    $stmt->bind_param("sssii", $email, $fullName, $phone, $userlevel, $userId);
     $success = $stmt->execute();
     $stmt->close();
     closeDBConnection($conn);
@@ -180,10 +179,9 @@ function updateUserAdmin(int $userId, string $email, string $fullName, string $r
 }
 
 // Create user (admin)
-function createUserAdmin($username, $email, $password, $fullName, $role = 'user', $lang = 'sv', $userlevel = 10, $phone = '', $colorscheme = 1) {
+function createUserAdmin($username, $email, $password, $fullName, $lang = 'sv', $userlevel = 10, $phone = '', $colorscheme = 1) {
     $conn = getDBConnection();
 
-    $roleNormalized = strtolower(trim($role)) === 'admin' ? 'admin' : 'user';
     $userlevel = (int)$userlevel ?: 10;
 
     // Check username
@@ -209,8 +207,8 @@ function createUserAdmin($username, $email, $password, $fullName, $role = 'user'
     $stmt->close();
 
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $conn->prepare("INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel, role) VALUES (?, ?, ?, ?, ?, 'default.png', ?, ?, ?, ?)");
-    $stmt->bind_param("sssssssis", $username, $email, $hashedPassword, $fullName, $phone, $lang, $colorscheme, $userlevel, $roleNormalized);
+    $stmt = $conn->prepare("INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel) VALUES (?, ?, ?, ?, ?, 'default.png', ?, ?, ?)");
+    $stmt->bind_param("ssssssii", $username, $email, $hashedPassword, $fullName, $phone, $lang, $colorscheme, $userlevel);
     $ok = $stmt->execute();
     $stmt->close();
     closeDBConnection($conn);
@@ -218,18 +216,81 @@ function createUserAdmin($username, $email, $password, $fullName, $role = 'user'
     return ['success' => $ok, 'error' => $ok ? null : 'error_general'];
 }
 
-// Delete user
-function deleteUserById(int $userId, ?int $currentUserId = null): bool {
+// Delete user (reassigns owned cases to the current admin by default)
+function deleteUserById(int $userId, ?int $currentUserId = null, ?int $transferCasesTo = null): bool {
     if ($currentUserId && $currentUserId === $userId) {
         return false; // do not allow self-delete
     }
+    if ($transferCasesTo !== null && $transferCasesTo === $userId) {
+        return false; // invalid transfer target
+    }
+
     $conn = getDBConnection();
-    $stmt = $conn->prepare("DELETE FROM tbl_users WHERE id = ?");
-    $stmt->bind_param("i", $userId);
-    $success = $stmt->execute();
-    $stmt->close();
-    closeDBConnection($conn);
-    return $success;
+    $conn->begin_transaction();
+
+    try {
+        // Choose a transfer target for owned cases (creator). Prefer explicit transfer, else current admin.
+        $caseOwnerTarget = null;
+        if (!is_null($transferCasesTo) && $transferCasesTo !== $userId) {
+            $caseOwnerTarget = $transferCasesTo;
+        } elseif (!is_null($currentUserId) && $currentUserId !== $userId) {
+            $caseOwnerTarget = $currentUserId;
+        }
+
+        // Reassign cases owned by this user to satisfy FK on user_id
+        $stmt = $conn->prepare("SELECT COUNT(*) AS total FROM tbl_cases WHERE user_id = ?");
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $ownerCount = (int)($result->fetch_assoc()['total'] ?? 0);
+        $stmt->close();
+        if ($ownerCount > 0) {
+            if ($caseOwnerTarget === null) {
+                $conn->rollback();
+                closeDBConnection($conn);
+                return false;
+            }
+            $stmt = $conn->prepare("UPDATE tbl_cases SET user_id = ? WHERE user_id = ?");
+            $stmt->bind_param("ii", $caseOwnerTarget, $userId);
+            $stmt->execute();
+            $stmt->close();
+        }
+
+        // Unassign any cases the user is currently assigned to (taker_id) to satisfy FK
+        $stmt = $conn->prepare("UPDATE tbl_cases SET taker_id = NULL WHERE taker_id = ?");
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $stmt->close();
+
+        // Remove multi-handler assignments if the table exists
+        $tableCheck = $conn->query("SHOW TABLES LIKE 'case_handlers'");
+        if ($tableCheck && $tableCheck->num_rows > 0) {
+            $stmt = $conn->prepare("DELETE FROM case_handlers WHERE user_id = ?");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $stmt->close();
+        }
+
+        // Delete any case comments authored by this user (FK on user_id)
+        $stmt = $conn->prepare("DELETE FROM case_comments WHERE user_id = ?");
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $stmt->close();
+
+        // Finally remove the user
+        $stmt = $conn->prepare("DELETE FROM tbl_users WHERE id = ?");
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $stmt->close();
+
+        $conn->commit();
+        closeDBConnection($conn);
+        return true;
+    } catch (Throwable $e) {
+        $conn->rollback();
+        closeDBConnection($conn);
+        return false;
+    }
 }
 
 // Reset password
@@ -247,7 +308,7 @@ function resetUserPassword(int $userId, string $newPassword): bool {
 /**
  * Import users from CSV.
  * Required headers (case-insensitive): username,email,password,name
- * Optional headers: phone,role,lang,colorscheme,userlevel
+ * Optional headers: phone,lang,colorscheme,userlevel
  */
 function importUsersFromCsv(string $path, ?int $importedById = null, ?string $originalName = null): array {
     $required = ['username', 'email', 'password', 'name'];
@@ -298,7 +359,6 @@ function importUsersFromCsv(string $path, ?int $importedById = null, ?string $or
         }
 
         $phone = $data['phone'] ?? '';
-        $role = $data['role'] ?? 'Användare';
         $lang = $data['lang'] ?? 'sv';
         $colorscheme = $data['colorscheme'] ?? 1;
         $userlevel = (int)($data['userlevel'] ?? 10);
@@ -313,9 +373,9 @@ function importUsersFromCsv(string $path, ?int $importedById = null, ?string $or
 
         if ($exists) {
             $userId = (int)$exists['id'];
-            $sql = "UPDATE tbl_users SET email = ?, name = ?, phone = ?, role = ?, lang = ?, colorscheme = ?, userlevel = ?";
-            $params = [$email, $name, $phone, $role, $lang, $colorscheme, $userlevel];
-            $types = "ssssssi";
+            $sql = "UPDATE tbl_users SET email = ?, name = ?, phone = ?, lang = ?, colorscheme = ?, userlevel = ?";
+            $params = [$email, $name, $phone, $lang, $colorscheme, $userlevel];
+            $types = "ssssii";
 
             if ($passwordPlain !== '') {
                 $hashed = password_hash($passwordPlain, PASSWORD_DEFAULT);
@@ -336,8 +396,8 @@ function importUsersFromCsv(string $path, ?int $importedById = null, ?string $or
             $stmt->close();
         } else {
             $hashedPassword = password_hash($passwordPlain, PASSWORD_DEFAULT);
-            $stmt = $conn->prepare("INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel, role) VALUES (?, ?, ?, ?, ?, 'default.png', ?, ?, ?, ?)");
-            $stmt->bind_param("sssssssis", $username, $email, $hashedPassword, $name, $phone, $lang, $colorscheme, $userlevel, $role);
+            $stmt = $conn->prepare("INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel) VALUES (?, ?, ?, ?, ?, 'default.png', ?, ?, ?)");
+            $stmt->bind_param("ssssssii", $username, $email, $hashedPassword, $name, $phone, $lang, $colorscheme, $userlevel);
             if ($stmt->execute()) {
                 $inserted++;
             } else {
@@ -362,3 +422,5 @@ function importUsersFromCsv(string $path, ?int $importedById = null, ?string $or
     ];
 }
 ?>
+
+

@@ -1,8 +1,8 @@
--- phpMyAdmin SQL Dump
+﻿-- phpMyAdmin SQL Dump
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Värd: 127.0.0.1
+-- VÃ¤rd: 127.0.0.1
 -- Tid vid skapande: 07 dec 2025 kl 23:40
 -- Serverversion: 10.4.32-MariaDB
 -- PHP-version: 8.2.12
@@ -38,6 +38,18 @@ CREATE TABLE `tbl_cases` (
   `status` varchar(20) NOT NULL,
   `prio` varchar(20) NOT NULL,
   `created` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Tabellstruktur `case_handlers`
+--
+
+CREATE TABLE `case_handlers` (
+  `case_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `assigned_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -119,77 +131,84 @@ CREATE TABLE `tbl_users` (
   `colorscheme` int(11) NOT NULL DEFAULT 1,
   `last_login` int(11) NOT NULL DEFAULT current_timestamp(),
   `userlevel` int(11) NOT NULL DEFAULT 10,
-  `role` enum('Admin','Användare','','') NOT NULL DEFAULT 'Användare',
+  `role` enum('Admin','AnvÃ¤ndare','','') NOT NULL DEFAULT 'AnvÃ¤ndare',
   `twofa_enabled` tinyint(1) NOT NULL,
   `twofa_secret` text NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Index för dumpade tabeller
+-- Index fÃ¶r dumpade tabeller
 --
 
 --
--- Index för tabell `tbl_cases`
+-- Index fÃ¶r tabell `tbl_cases`
 --
 ALTER TABLE `tbl_cases`
   ADD PRIMARY KEY (`id`);
 
 --
--- Index för tabell `tbl_colors`
+-- Index fБr tabell `case_handlers`
+--
+ALTER TABLE `case_handlers`
+  ADD PRIMARY KEY (`case_id`,`user_id`),
+  ADD KEY `idx_case_handlers_user` (`user_id`);
+
+--
+-- Index fÃ¶r tabell `tbl_colors`
 --
 ALTER TABLE `tbl_colors`
   ADD PRIMARY KEY (`id`);
 
 --
--- Index för tabell `tbl_members`
+-- Index fÃ¶r tabell `tbl_members`
 --
 ALTER TABLE `tbl_members`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_medlnr` (`medlnr`);
 
 --
--- Index för tabell `tbl_member_imports`
+-- Index fÃ¶r tabell `tbl_member_imports`
 --
 ALTER TABLE `tbl_member_imports`
   ADD PRIMARY KEY (`id`),
   ADD KEY `imported_by` (`imported_by`);
 
 --
--- Index för tabell `tbl_users`
+-- Index fÃ¶r tabell `tbl_users`
 --
 ALTER TABLE `tbl_users`
   ADD PRIMARY KEY (`id`);
 
 --
--- AUTO_INCREMENT för dumpade tabeller
+-- AUTO_INCREMENT fÃ¶r dumpade tabeller
 --
 
 --
--- AUTO_INCREMENT för tabell `tbl_cases`
+-- AUTO_INCREMENT fÃ¶r tabell `tbl_cases`
 --
 ALTER TABLE `tbl_cases`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT för tabell `tbl_colors`
+-- AUTO_INCREMENT fÃ¶r tabell `tbl_colors`
 --
 ALTER TABLE `tbl_colors`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT för tabell `tbl_members`
+-- AUTO_INCREMENT fÃ¶r tabell `tbl_members`
 --
 ALTER TABLE `tbl_members`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT för tabell `tbl_member_imports`
+-- AUTO_INCREMENT fÃ¶r tabell `tbl_member_imports`
 --
 ALTER TABLE `tbl_member_imports`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT för tabell `tbl_users`
+-- AUTO_INCREMENT fÃ¶r tabell `tbl_users`
 --
 ALTER TABLE `tbl_users`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;

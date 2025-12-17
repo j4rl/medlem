@@ -21,6 +21,10 @@ if (!empty($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], 'case-e
 $statusOptions = getStatusOptions();
 $priorityOptions = getPriorityOptions();
 $allUsers = getAllUsers();
+$selectedAssignees = $case['handler_ids'] ?? [];
+if (empty($selectedAssignees) && !empty($case['assigned_to'])) {
+    $selectedAssignees = [(int)$case['assigned_to']];
+}
 
 function normalizeEntries(array $caseData, array $case): array {
     $entries = [];
@@ -82,10 +86,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $memberDataRaw = $_POST['member_data'] ?? '';
     $newStatus = normalizeStatusValue($_POST['status'] ?? $case['status'], $case['status']);
     $newPriority = normalizePriorityValue($_POST['priority'] ?? $case['priority'], $case['priority']);
-    $newAssignee = isset($_POST['assigned_to']) && $_POST['assigned_to'] !== '' ? (int)$_POST['assigned_to'] : null;
+    $newAssignees = normalizeHandlerIds($_POST['assigned_to'] ?? []);
+    $selectedAssignees = $newAssignees;
+    $newAssignee = $newAssignees[0] ?? null;
     $case['status'] = $newStatus;
     $case['priority'] = $newPriority;
     $case['assigned_to'] = $newAssignee;
+    $case['handler_ids'] = $newAssignees;
 
     // Normalize existing entries so the original body is preserved, then append the new note
     $existingEntries = normalizeEntries($caseData, $case);
@@ -110,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $description = $case['description'] ?? '';
 
-    if (updateCase($caseId, $case['title'], $description, $newStatus, $newPriority, $newAssignee, $newCaseData, $memberData)) {
+    if (updateCase($caseId, $case['title'], $description, $newStatus, $newPriority, $newAssignees, $newCaseData, $memberData)) {
         header('Location: case-edit.php?id=' . $caseId . '&updated=1');
         exit();
     } else {
@@ -149,15 +156,15 @@ include __DIR__ . '/../includes/header.php';
                     <div><strong><?php echo __('title'); ?></strong><br><?php echo htmlspecialchars($case['title']); ?></div>
                     <div><strong><?php echo __('created_at'); ?></strong><br><?php echo date('Y-m-d H:i', strtotime($case['created_at'])); ?></div>
                     <div>
-                        <label class="form-label" for="assigned_to">Handläggare</label>
-                        <select id="assigned_to" name="assigned_to" class="form-input">
-                            <option value=""><?php echo __('assigned_to'); ?>...</option>
+                        <label class="form-label" for="assigned_to"><?php echo __('case_handlers'); ?></label>
+                        <select id="assigned_to" name="assigned_to[]" class="form-input" multiple size="6">
                             <?php foreach ($allUsers as $assignee): ?>
-                                <option value="<?php echo (int)$assignee['id']; ?>" <?php echo ($case['assigned_to'] ?? null) == $assignee['id'] ? 'selected' : ''; ?>>
+                                <option value="<?php echo (int)$assignee['id']; ?>" <?php echo in_array((int)$assignee['id'], $selectedAssignees, true) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($assignee['full_name']); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <p class="muted" style="margin-top: 0.35rem;">Håll ned Ctrl/Cmd för att markera flera.</p>
                     </div>
                     <div>
                         <label class="form-label" for="status"><?php echo __('status'); ?></label>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/twofactor.php';
 
@@ -21,7 +21,7 @@ function getCurrentUser() {
     $conn = getDBConnection();
     $userId = $_SESSION['user_id'];
     
-    $stmt = $conn->prepare("SELECT id, username, email, name AS full_name, COALESCE(NULLIF(pic, ''), 'default.png') AS profile_picture, lang, role, userlevel, colorscheme, twofa_enabled FROM tbl_users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT id, username, email, name AS full_name, COALESCE(NULLIF(pic, ''), 'default.png') AS profile_picture, lang, userlevel, colorscheme, twofa_enabled FROM tbl_users WHERE id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -35,6 +35,23 @@ function getCurrentUser() {
     }
 
     return $user;
+}
+
+function getUserLevelValue(?array $user): int {
+    if (!$user) {
+        return 0;
+    }
+    return (int)($user['userlevel'] ?? 0);
+}
+
+function userIsStandard(?array $user): bool {
+    $level = getUserLevelValue($user);
+    return $level >= 10 && $level < 100;
+}
+
+function userHasAdminAccess(?array $user): bool {
+    $level = getUserLevelValue($user);
+    return $level >= 1000;
 }
 
 // Login user (returns ['success'=>bool, 'requires_2fa'=>bool])
@@ -104,7 +121,7 @@ function registerUser($username, $email, $password, $fullName, $phone = '') {
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
     
     // Insert user
-    $stmt = $conn->prepare("INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel, role) VALUES (?, ?, ?, ?, ?, 'default.png', 'sv', 1, 10, 'Användare')");
+    $stmt = $conn->prepare("INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel) VALUES (?, ?, ?, ?, ?, 'default.png', 'sv', 1, 10)");
     $stmt->bind_param("sssss", $username, $email, $hashedPassword, $fullName, $phone);
     
     if ($stmt->execute()) {
@@ -162,12 +179,7 @@ function completeTwoFactorLogin(string $code): bool
 
 function isAdminUser(): bool {
     $user = getCurrentUser();
-    if (!$user) {
-        return false;
-    }
-
-    $role = strtolower($user['role'] ?? '');
-    return $role === 'admin';
+    return userHasAdminAccess($user);
 }
 
 function requireAdmin() {
@@ -187,3 +199,5 @@ function requireLogin() {
     }
 }
 ?>
+
+

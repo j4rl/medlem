@@ -66,7 +66,7 @@
 - Optional TOTP 2FA for logins
 
 ### 10. Database Schema (high level)
-- `tbl_users`: accounts, roles, settings
+- `tbl_users`: accounts, userlevels, settings
 - `tbl_members`: encrypted member data
 - `tbl_cases`: cases with assignment and status
 - `tbl_comments`: case comments

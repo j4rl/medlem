@@ -11,13 +11,19 @@ $success = '';
 $now = date('Y-m-d\TH:i');
 // Default taker is the current user for faster handoff
 $defaultAssignee = $user['id'] ?? null;
+$selectedAssignees = [];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $selectedAssignees = normalizeHandlerIds($_POST['assigned_to'] ?? []);
+} elseif ($defaultAssignee) {
+    $selectedAssignees = [$defaultAssignee];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = $_POST['title'] ?? '';
     $caseBody = $_POST['case_body'] ?? '';
     $description = $caseBody; // keep legacy field populated
     $priority = $_POST['priority'] ?? 'medium';
-    $assignedTo = !empty($_POST['assigned_to']) ? $_POST['assigned_to'] : null;
+    $assignedTo = normalizeHandlerIds($_POST['assigned_to'] ?? []);
     $receivedAt = $_POST['received_at'] ?? '';
     $recipient = $_POST['recipient'] ?? '';
     $handlerLabel = $_POST['handler'] ?? '';
@@ -117,18 +123,17 @@ include __DIR__ . '/../includes/header.php';
 
                 <div class="form-grid">
                     <div class="form-group">
-                        <label class="form-label" for="assigned_to"><?php echo __('handler'); ?></label>
-                        <select id="assigned_to" name="assigned_to" class="form-select">
-                            <option value=""><?php echo __('assigned_to'); ?></option>
+                        <label class="form-label" for="assigned_to"><?php echo __('case_handlers'); ?></label>
+                        <select id="assigned_to" name="assigned_to[]" class="form-select" multiple size="6">
                             <?php foreach ($users as $u): ?>
                             <option value="<?php echo $u['id']; ?>" <?php
-                                $selectedAssignee = $_POST['assigned_to'] ?? $defaultAssignee;
-                                echo ($selectedAssignee == $u['id']) ? 'selected' : '';
+                                echo in_array((int)$u['id'], $selectedAssignees, true) ? 'selected' : '';
                             ?>>
                                 <?php echo htmlspecialchars($u['full_name']); ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
+                        <p class="muted" style="margin-top: 0.35rem;">Håll ned Ctrl/Cmd för att markera flera.</p>
                         <input type="hidden" name="handler" id="handler" value="">
                     </div>
                     <div class="form-group">
@@ -192,11 +197,19 @@ document.addEventListener('DOMContentLoaded', () => {
         el.focus();
     };
 
+    const handlerLabels = () => {
+        if (!handlerSelect) return [];
+        return Array.from(handlerSelect.selectedOptions)
+            .map((option) => option.text)
+            .filter((label) => label);
+    };
+
     if (handlerSelect && handlerHidden) {
-        handlerHidden.value = handlerSelect.options[handlerSelect.selectedIndex]?.text || '';
-        handlerSelect.addEventListener('change', () => {
-            handlerHidden.value = handlerSelect.options[handlerSelect.selectedIndex]?.text || '';
-        });
+        const syncHandler = () => {
+            handlerHidden.value = handlerLabels().join(', ');
+        };
+        syncHandler();
+        handlerSelect.addEventListener('change', syncHandler);
     }
 
     const formatMemberText = (member) => {

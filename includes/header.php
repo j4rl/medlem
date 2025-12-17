@@ -61,7 +61,7 @@ $themeStyles = renderThemeStyles($activeTheme);
                 <a href="<?php echo BASE_URL; ?>/pages/cases.php" class="<?php echo $currentPage === 'cases' ? 'active' : ''; ?>">
                     <?php echo __('cases'); ?>
                 </a>
-                <?php if (!empty($currentUser['role']) && strtolower($currentUser['role']) === 'admin'): ?>
+                <?php if (userHasAdminAccess($currentUser)): ?>
                     <div class="nav-dropdown">
                         <button type="button" class="nav-link <?php echo $isAdminSection ? 'active' : ''; ?>" onclick="toggleDropdown('adminDropdown')">
                             <?php echo __('admin'); ?>

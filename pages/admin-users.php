@@ -7,7 +7,7 @@ requireAdmin();
 
 $current = getCurrentUser();
 $conn = getDBConnection();
-$result = $conn->query("SELECT id, username, email, name AS full_name, role, userlevel, phone FROM tbl_users ORDER BY id ASC");
+$result = $conn->query("SELECT id, username, email, name AS full_name, userlevel, phone FROM tbl_users ORDER BY id ASC");
 $users = [];
 while ($row = $result->fetch_assoc()) {
     $users[] = $row;
@@ -35,12 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $name = trim($_POST['full_name'] ?? '');
-        $role = $_POST['role'] ?? 'user';
         $userlevel = (int)($_POST['userlevel'] ?? 10);
         if ($username === '' || $email === '' || $password === '' || $name === '') {
             $err = __('error_required');
         } else {
-            $res = createUserAdmin($username, $email, $password, $name, $role, 'sv', $userlevel);
+            $res = createUserAdmin($username, $email, $password, $name, 'sv', $userlevel);
             if ($res['success']) {
                 header('Location: admin-users.php?created=1');
                 exit();
@@ -76,13 +75,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $userId = (int)($_POST['user_id'] ?? 0);
         $email = trim($_POST['email'] ?? '');
         $name = trim($_POST['full_name'] ?? '');
-        $role = $_POST['role'] ?? 'user';
         $userlevel = (int)($_POST['userlevel'] ?? 10);
         $phone = trim($_POST['phone'] ?? '');
         if ($email === '' || $name === '') {
             $err = __('error_required');
         } else {
-            $res = updateUserAdmin($userId, $email, $name, $role, $userlevel, $phone);
+            $res = updateUserAdmin($userId, $email, $name, $userlevel, $phone);
             if ($res['success']) {
                 $msg = __('success_update');
                 $view = 'edit';
@@ -165,15 +163,9 @@ include __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="form-grid">
                         <div class="form-group">
-                            <label class="form-label" for="role">Role</label>
-                            <select name="role" id="role" class="form-select">
-                                <option value="user">User</option>
-                                <option value="admin">Admin</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
                             <label class="form-label" for="userlevel">Userlevel</label>
                             <input type="number" id="userlevel" name="userlevel" class="form-input" value="10">
+                            <p class="muted" style="margin-top: 0.35rem;">10-99 anv&#228;ndare, 1000+ admin.</p>
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary"><?php echo __('new_user'); ?></button>
@@ -203,15 +195,9 @@ include __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="form-grid">
                         <div class="form-group">
-                            <label class="form-label">Role</label>
-                            <select name="role" class="form-select">
-                                <option value="user" <?php echo strtolower($editUser['role']) === 'user' ? 'selected' : ''; ?>>User</option>
-                                <option value="admin" <?php echo strtolower($editUser['role']) === 'admin' ? 'selected' : ''; ?>>Admin</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
                             <label class="form-label">Userlevel</label>
                             <input type="number" name="userlevel" class="form-input" value="<?php echo (int)$editUser['userlevel']; ?>">
+                            <p class="muted" style="margin-top: 0.35rem;">10-99 anv&#228;ndare, 1000+ admin.</p>
                         </div>
                     </div>
                     <div class="form-group">
@@ -259,7 +245,6 @@ include __DIR__ . '/../includes/header.php';
                             <th>Username</th>
                             <th>Email</th>
                             <th><?php echo __('full_name'); ?></th>
-                            <th>Role</th>
                             <th>Userlevel</th>
                             <th>Actions</th>
                         </tr>
@@ -271,7 +256,6 @@ include __DIR__ . '/../includes/header.php';
                                 <td><?php echo htmlspecialchars($u['username']); ?></td>
                                 <td><?php echo htmlspecialchars($u['email']); ?></td>
                                 <td><?php echo htmlspecialchars($u['full_name']); ?></td>
-                                <td><?php echo htmlspecialchars($u['role']); ?></td>
                                 <td><?php echo (int)$u['userlevel']; ?></td>
                                 <td>
                                     <a href="admin-users.php?view=edit&id=<?php echo (int)$u['id']; ?>" class="btn btn-secondary btn-sm"><?php echo __('edit'); ?></a>

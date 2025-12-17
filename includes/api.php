@@ -66,8 +66,9 @@ switch ($action) {
             $status = $_POST['status'] ?? '';
             
             $case = getCaseById($caseId);
+            $handlerIds = $case['handler_ids'] ?? ($case['assigned_to'] ?? null);
             if ($case && updateCase($caseId, $case['title'], $case['description'], 
-                                    $status, $case['priority'], $case['assigned_to'])) {
+                                    $status, $case['priority'], $handlerIds)) {
                 echo json_encode(['success' => true]);
             } else {
                 http_response_code(500);

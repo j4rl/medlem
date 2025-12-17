@@ -79,7 +79,13 @@ include __DIR__ . '/../includes/header.php';
                         <td><?php echo htmlspecialchars($case['case_number']); ?></td>
                         <td><?php echo htmlspecialchars($case['title']); ?></td>
                         <td><?php echo htmlspecialchars($case['creator_name']); ?></td>
-                        <td><?php echo $case['assignee_name'] ? htmlspecialchars($case['assignee_name']) : '-'; ?></td>
+                        <td>
+                            <?php
+                            $handlerNames = $case['handler_names'] ?? [];
+                            $handlerLabel = $handlerNames ? implode(', ', $handlerNames) : ($case['assignee_name'] ?? '');
+                            echo $handlerLabel !== '' ? htmlspecialchars($handlerLabel) : '-';
+                            ?>
+                        </td>
                         <td>
                             <span class="badge badge-<?php echo $case['status']; ?>">
                                 <?php echo __('status_' . $case['status']); ?>
@@ -132,7 +138,11 @@ include __DIR__ . '/../includes/header.php';
                         <li class="flex-between" style="padding: 6px 0; border-bottom: 1px solid #eee;">
                             <div>
                                 <div><?php echo htmlspecialchars($case['title']); ?></div>
-                                <small class="muted"><?php echo htmlspecialchars($case['assignee_name'] ?: '-'); ?></small>
+                                <?php
+                                $handlerNames = $case['handler_names'] ?? [];
+                                $handlerLabel = $handlerNames ? implode(', ', $handlerNames) : ($case['assignee_name'] ?? '');
+                                ?>
+                                <small class="muted"><?php echo $handlerLabel !== '' ? htmlspecialchars($handlerLabel) : '-'; ?></small>
                                 <div class="flex gap-1" style="margin-top: 4px; flex-wrap: wrap;">
                                     <span class="badge badge-<?php echo $case['status']; ?>"><?php echo __('status_' . $case['status']); ?></span>
                                     <span class="badge badge-<?php echo $case['priority']; ?>"><?php echo __('priority_' . $case['priority']); ?></span>
