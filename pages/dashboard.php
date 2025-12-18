@@ -189,7 +189,7 @@ include __DIR__ . '/../includes/header.php';
             $orgPriorityMax = $calcMax($orgPriorityCounts, $priorityKeys);
         ?>
 
-        <section class="card">
+        <!--section class="card">
             <div class="section-header">
                 <h2><?php echo __('statistics'); ?></h2>
                 <span class="muted">Status + <?php echo __('priority'); ?> (pie)</span>
@@ -256,7 +256,7 @@ include __DIR__ . '/../includes/header.php';
                     </ul>
                 </div>
             </div>
-        </section>
+        </section-->
 
         <div class="grid grid-2 mt-3">
             <div class="card list-card">

@@ -638,7 +638,7 @@ function getCaseStatistics($userId = null) {
 function getAllUsers() {
     $conn = getDBConnection();
 
-    $result = $conn->query("SELECT id, username, name AS full_name FROM tbl_users ORDER BY name");
+    $result = $conn->query("SELECT id, username, email, phone, name AS full_name FROM tbl_users ORDER BY name");
 
     $users = [];
     while ($row = $result->fetch_assoc()) {

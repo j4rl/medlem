@@ -21,6 +21,16 @@ if (!empty($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], 'case-e
 $statusOptions = getStatusOptions();
 $priorityOptions = getPriorityOptions();
 $allUsers = getAllUsers();
+$userContacts = [];
+foreach ($allUsers as $u) {
+    $userContacts[] = [
+        'id' => (int)($u['id'] ?? 0),
+        'name' => $u['full_name'] ?? '',
+        'username' => $u['username'] ?? '',
+        'email' => $u['email'] ?? '',
+        'phone' => $u['phone'] ?? '',
+    ];
+}
 $selectedAssignees = $case['handler_ids'] ?? [];
 if (empty($selectedAssignees) && !empty($case['assigned_to'])) {
     $selectedAssignees = [(int)$case['assigned_to']];
@@ -204,7 +214,10 @@ include __DIR__ . '/../includes/header.php';
                 <div class="form-group">
                     <div class="flex-between" style="align-items: center; gap: 0.5rem;">
                         <label class="form-label" for="member_data"><?php echo __('member_data'); ?></label>
-                        <button type="button" class="btn btn-secondary btn-sm" id="memberPickerEdit">Sök medlem &amp; kopiera</button>
+                        <div class="flex gap-1">
+                            <button type="button" class="btn btn-secondary btn-sm" id="memberPickerEdit">Sök medlem &amp; kopiera</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="userPickerBtn"><?php echo __('fetch_user'); ?></button>
+                        </div>
                     </div>
                     <textarea id="member_data" name="member_data" class="form-textarea" rows="3" placeholder="<?php echo __('member_data'); ?>..." spellcheck="false"><?php echo htmlspecialchars($memberDataDisplay); ?></textarea>
                     <p class="muted" style="margin-top: 0.35rem;">Sparas som fri text.</p>
@@ -258,6 +271,151 @@ include __DIR__ . '/../includes/header.php';
 window.addEventListener('load', () => {
     if (window.initMemberPicker) {
         window.initMemberPicker('#memberPickerEdit');
+    }
+
+    const memberField = document.getElementById('member_data');
+    const userPickerBtn = document.getElementById('userPickerBtn');
+    const userContacts = <?php echo json_encode($userContacts, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+    const labels = {
+        name: '<?php echo __('full_name'); ?>',
+        username: '<?php echo __('username'); ?>',
+        email: '<?php echo __('email'); ?>',
+        phone: '<?php echo __('phone'); ?>'
+    };
+
+    const insertAtCaret = (el, text) => {
+        if (!el || !text) return;
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? el.value.length;
+        const before = el.value.substring(0, start);
+        const after = el.value.substring(end);
+        const needsNewlineBefore = before && !before.endsWith('\n');
+        const needsNewlineAfter = after && !text.endsWith('\n');
+        const insertion = `${needsNewlineBefore ? '\n' : ''}${text}${needsNewlineAfter ? '\n' : ''}`;
+        el.value = before + insertion + after;
+        const caret = (before + insertion).length;
+        el.selectionStart = el.selectionEnd = caret;
+        el.focus();
+    };
+
+    const formatUserContact = (user) => {
+        if (!user || typeof user !== 'object') return '';
+        const lines = [];
+        if (user.name) lines.push(`${labels.name}: ${user.name}`);
+        if (user.username) lines.push(`${labels.username}: ${user.username}`);
+        if (user.email) lines.push(`${labels.email}: ${user.email}`);
+        if (user.phone) lines.push(`${labels.phone}: ${user.phone}`);
+        return lines.join('\n');
+    };
+
+    function openUserPicker() {
+        const overlay = document.createElement('div');
+        overlay.className = 'member-popover-backdrop';
+        overlay.innerHTML = `
+            <div class="member-popover" role="dialog" aria-modal="true">
+                <div class="member-popover__header">
+                    <div>
+                        <p class="eyebrow"><?php echo __('users'); ?></p>
+                        <h3 style="margin: 0;"><?php echo __('fetch_user'); ?></h3>
+                        <p class="muted" style="margin: 0;"><?php echo __('fetch_user_hint'); ?></p>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm member-popover__close" aria-label="Close">&times;</button>
+                </div>
+                <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <input type="text" class="form-input" id="userPopoverSearch" placeholder="<?php echo __('search'); ?>..." autocomplete="off">
+                </div>
+                <div class="member-popover__results" id="userPopoverResults">
+                    <p class="muted" style="margin: 0;">Börja skriva för att söka.</p>
+                </div>
+            </div>
+        `;
+
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+        });
+        overlay.querySelector('.member-popover__close').addEventListener('click', close);
+
+        const searchInput = overlay.querySelector('#userPopoverSearch');
+        const resultsBox = overlay.querySelector('#userPopoverResults');
+
+        const render = (items) => {
+            resultsBox.innerHTML = '';
+            if (!items || items.length === 0) {
+                resultsBox.innerHTML = '<p class="muted" style="margin: 0;">Inga träffar.</p>';
+                return;
+            }
+            items.forEach((user) => {
+                const div = document.createElement('div');
+                div.className = 'member-hit';
+
+                const meta = document.createElement('div');
+                meta.className = 'member-hit__meta';
+                meta.innerHTML = `
+                    <strong>${user.name || ''}</strong><br>
+                    ${user.username ? `<div class="muted">${labels.username}: ${user.username}</div>` : ''}
+                    ${user.email ? `<div class="muted">${user.email}</div>` : ''}
+                    ${user.phone ? `<div class="muted">${user.phone}</div>` : ''}
+                `;
+
+                const checks = document.createElement('div');
+                checks.className = 'member-hit__checks';
+                const fields = [
+                    { key: 'name', label: labels.name, value: user.name },
+                    { key: 'username', label: labels.username, value: user.username },
+                    { key: 'email', label: labels.email, value: user.email },
+                    { key: 'phone', label: labels.phone, value: user.phone },
+                ].filter(f => f.value && f.value !== '');
+
+                fields.forEach((f) => {
+                    const id = `user-chk-${f.key}-${Math.random().toString(36).slice(2)}`;
+                    const label = document.createElement('label');
+                    label.className = 'member-hit__check';
+                    label.innerHTML = `<input type="checkbox" data-value="${f.value}" id="${id}"> ${f.label}`;
+                    checks.appendChild(label);
+                });
+
+                const actions = document.createElement('div');
+                actions.className = 'member-hit__actions';
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-primary btn-sm';
+                btn.textContent = 'Infoga';
+                btn.addEventListener('click', () => {
+                    const checked = Array.from(checks.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.dataset.value || '').filter(Boolean);
+                    const text = checked.length > 0 ? checked.join('\n') : formatUserContact(user);
+                    insertAtCaret(memberField, text);
+                    close();
+                });
+                actions.appendChild(btn);
+
+                div.appendChild(meta);
+                if (fields.length > 0) {
+                    div.appendChild(checks);
+                }
+                div.appendChild(actions);
+                resultsBox.appendChild(div);
+            });
+        };
+
+        searchInput.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            if (!q || q.length < 1) {
+                resultsBox.innerHTML = '<p class="muted" style="margin: 0;">Börja skriva för att söka.</p>';
+                return;
+            }
+            const hits = userContacts.filter((u) => {
+                return [u.name, u.email, u.phone].some((val) => (val || '').toLowerCase().includes(q));
+            });
+            render(hits.slice(0, 50));
+        });
+
+        document.body.appendChild(overlay);
+        setTimeout(() => searchInput.focus(), 50);
+    }
+
+    if (userPickerBtn && memberField) {
+        userPickerBtn.addEventListener('click', openUserPicker);
     }
 });
 </script>

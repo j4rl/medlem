@@ -21,7 +21,8 @@ function getCurrentUser() {
     $conn = getDBConnection();
     $userId = $_SESSION['user_id'];
     
-    $stmt = $conn->prepare("SELECT id, username, email, name AS full_name, COALESCE(NULLIF(pic, ''), 'default.png') AS profile_picture, lang, userlevel, colorscheme, twofa_enabled FROM tbl_users WHERE id = ?");
+    $sql = "SELECT id, username, email, name AS full_name, COALESCE(NULLIF(pic, ''), 'default.png') AS profile_picture, lang, userlevel, colorscheme, twofa_enabled FROM tbl_users WHERE id = ?";
+    $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -199,5 +200,3 @@ function requireLogin() {
     }
 }
 ?>
-
-

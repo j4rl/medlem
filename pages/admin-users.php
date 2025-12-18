@@ -174,6 +174,46 @@ include __DIR__ . '/../includes/header.php';
             <?php endif; ?>
         </div>
 
+        <div class="card mt-3">
+            <div class="section-header">
+                <div>
+                    <h2><?php echo __('user_contact_list'); ?></h2>
+                    <span class="muted"><?php echo __('user_contact_list_hint'); ?></span>
+                </div>
+            </div>
+
+            <?php if (empty($users)): ?>
+                <p class="muted"><?php echo __('no_data'); ?></p>
+            <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th><?php echo __('full_name'); ?></th>
+                                <th><?php echo __('email'); ?></th>
+                                <th><?php echo __('phone'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($users as $u): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($u['full_name']); ?></td>
+                                    <td><a href="mailto:<?php echo htmlspecialchars($u['email']); ?>"><?php echo htmlspecialchars($u['email']); ?></a></td>
+                                    <td>
+                                        <?php if (!empty($u['phone'])): ?>
+                                            <a href="tel:<?php echo htmlspecialchars(preg_replace('/[^0-9+]/', '', $u['phone'])); ?>"><?php echo htmlspecialchars($u['phone']); ?></a>
+                                        <?php else: ?>
+                                            <span class="muted"><?php echo __('no_data'); ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+
         <?php if ($view === 'edit' && $editUser): ?>
             <div class="card mt-3">
                 <div class="section-header">

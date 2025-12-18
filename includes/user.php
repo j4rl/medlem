@@ -333,6 +333,8 @@ function importUsersFromCsv(string $path, ?int $importedById = null, ?string $or
     }
 
     $conn = getDBConnection();
+    $lookupByUsernameStmt = $conn->prepare("SELECT id, username FROM tbl_users WHERE username = ? LIMIT 1");
+    $lookupByNameStmt = $conn->prepare("SELECT id, username FROM tbl_users WHERE name = ? LIMIT 2");
     $total = $inserted = $updated = $skipped = 0;
     $errors = [];
 
@@ -363,16 +365,35 @@ function importUsersFromCsv(string $path, ?int $importedById = null, ?string $or
         $colorscheme = $data['colorscheme'] ?? 1;
         $userlevel = (int)($data['userlevel'] ?? 10);
 
-        // Check if user exists
-        $stmt = $conn->prepare("SELECT id FROM tbl_users WHERE username = ? LIMIT 1");
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $exists = $result->fetch_assoc();
-        $stmt->close();
+        // Check if user exists (prefer username, fallback to matching name)
+        $lookupByUsernameStmt->bind_param("s", $username);
+        $lookupByUsernameStmt->execute();
+        $usernameResult = $lookupByUsernameStmt->get_result();
+        $existingUser = $usernameResult ? $usernameResult->fetch_assoc() : null;
+        if ($usernameResult) {
+            $usernameResult->free();
+        }
 
-        if ($exists) {
-            $userId = (int)$exists['id'];
+        $matchedByName = false;
+        if (!$existingUser && $name !== '') {
+            $lookupByNameStmt->bind_param("s", $name);
+            $lookupByNameStmt->execute();
+            $nameResult = $lookupByNameStmt->get_result();
+            if ($nameResult) {
+                if ($nameResult->num_rows > 1) {
+                    $errors[] = "Row {$total}: Multiple users already share the name '{$name}'. Skipping update to avoid overwriting.";
+                    $nameResult->free();
+                    $skipped++;
+                    continue;
+                }
+                $existingUser = $nameResult->fetch_assoc();
+                $matchedByName = (bool)$existingUser;
+                $nameResult->free();
+            }
+        }
+
+        if ($existingUser) {
+            $userId = (int)$existingUser['id'];
             $sql = "UPDATE tbl_users SET email = ?, name = ?, phone = ?, lang = ?, colorscheme = ?, userlevel = ?";
             $params = [$email, $name, $phone, $lang, $colorscheme, $userlevel];
             $types = "ssssii";
@@ -383,6 +404,25 @@ function importUsersFromCsv(string $path, ?int $importedById = null, ?string $or
                 $params[] = $hashed;
                 $types .= "s";
             }
+
+            if ($matchedByName && $username !== '' && $username !== ($existingUser['username'] ?? '')) {
+                $usernameCheck = $conn->prepare("SELECT id FROM tbl_users WHERE username = ? AND id != ?");
+                $usernameCheck->bind_param("si", $username, $userId);
+                $usernameCheck->execute();
+                $usernameCheckResult = $usernameCheck->get_result();
+                if ($usernameCheckResult && $usernameCheckResult->num_rows === 0) {
+                    $sql .= ", username = ?";
+                    $params[] = $username;
+                    $types .= "s";
+                } else {
+                    $errors[] = "Row {$total}: Username '{$username}' already exists; kept existing username.";
+                }
+                if ($usernameCheckResult) {
+                    $usernameCheckResult->free();
+                }
+                $usernameCheck->close();
+            }
+
             $sql .= " WHERE id = ?";
             $params[] = $userId;
             $types .= "i";
@@ -408,6 +448,8 @@ function importUsersFromCsv(string $path, ?int $importedById = null, ?string $or
     }
 
     fclose($handle);
+    $lookupByUsernameStmt->close();
+    $lookupByNameStmt->close();
     closeDBConnection($conn);
 
     return [
@@ -422,5 +464,3 @@ function importUsersFromCsv(string $path, ?int $importedById = null, ?string $or
     ];
 }
 ?>
-
-
