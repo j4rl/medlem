@@ -22,7 +22,7 @@ return [
     'user_contact_list' => 'Kontaktlista',
     'user_contact_list_hint' => 'Namn och kontaktuppgifter snabbt till hands.',
     'fetch_user' => 'Hämta användare',
-    'fetch_user_hint' => 'Välj en användare och lägg in namn, e-post och telefon i noteringen.',
+    'fetch_user_hint' => 'Välj en användare och kopiera namn, e-post och telefon till urklipp.',
     'select_user' => 'Välj användare',
     'new_user' => 'Ny användare',
     'member_directory' => 'Medlemsregister',

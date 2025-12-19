@@ -273,7 +273,6 @@ window.addEventListener('load', () => {
         window.initMemberPicker('#memberPickerEdit');
     }
 
-    const memberField = document.getElementById('member_data');
     const userPickerBtn = document.getElementById('userPickerBtn');
     const userContacts = <?php echo json_encode($userContacts, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
     const labels = {
@@ -283,19 +282,28 @@ window.addEventListener('load', () => {
         phone: '<?php echo __('phone'); ?>'
     };
 
-    const insertAtCaret = (el, text) => {
-        if (!el || !text) return;
-        const start = el.selectionStart ?? el.value.length;
-        const end = el.selectionEnd ?? el.value.length;
-        const before = el.value.substring(0, start);
-        const after = el.value.substring(end);
-        const needsNewlineBefore = before && !before.endsWith('\n');
-        const needsNewlineAfter = after && !text.endsWith('\n');
-        const insertion = `${needsNewlineBefore ? '\n' : ''}${text}${needsNewlineAfter ? '\n' : ''}`;
-        el.value = before + insertion + after;
-        const caret = (before + insertion).length;
-        el.selectionStart = el.selectionEnd = caret;
-        el.focus();
+    const fallbackCopy = (text) => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.top = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try { document.execCommand('copy'); } catch (_) {}
+        document.body.removeChild(textarea);
+    };
+
+    const copyToClipboard = (text, onDone) => {
+        if (!text) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(onDone).catch(() => {
+                fallbackCopy(text);
+                onDone && onDone();
+            });
+        } else {
+            fallbackCopy(text);
+            onDone && onDone();
+        }
     };
 
     const formatUserContact = (user) => {
@@ -380,12 +388,20 @@ window.addEventListener('load', () => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'btn btn-primary btn-sm';
-                btn.textContent = 'Infoga';
+                btn.textContent = 'Kopiera';
                 btn.addEventListener('click', () => {
                     const checked = Array.from(checks.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.dataset.value || '').filter(Boolean);
                     const text = checked.length > 0 ? checked.join('\n') : formatUserContact(user);
-                    insertAtCaret(memberField, text);
-                    close();
+                    if (!text) return;
+                    copyToClipboard(text, () => {
+                        const original = btn.textContent;
+                        btn.textContent = 'Kopierat';
+                        btn.disabled = true;
+                        setTimeout(() => {
+                            btn.disabled = false;
+                            btn.textContent = original;
+                        }, 900);
+                    });
                 });
                 actions.appendChild(btn);
 
@@ -414,7 +430,7 @@ window.addEventListener('load', () => {
         setTimeout(() => searchInput.focus(), 50);
     }
 
-    if (userPickerBtn && memberField) {
+    if (userPickerBtn) {
         userPickerBtn.addEventListener('click', openUserPicker);
     }
 });
