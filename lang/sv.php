@@ -108,6 +108,10 @@ return [
     'created_at' => 'Skapad',
     'updated_at' => 'Uppdaterad',
     'resolved_at' => 'Löst',
+    'flag_new_assignment' => 'Ny tilldelning',
+    'flag_recent_update' => 'Uppdaterad',
+    'since_last_login' => 'Sedan senaste inloggning: %s',
+    'case_alerts_tooltip' => 'Nya tilldelningar: %d · Uppdaterade ärenden: %d',
     
     // Status
     'status_no_action' => 'Ingen åtgärd',

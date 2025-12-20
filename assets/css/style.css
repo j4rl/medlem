@@ -213,6 +213,37 @@ a:focus {
     display: block;
 }
 
+.nav-alert {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+.nav-alert__pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.nav-alert__pill--new {
+    background-color: var(--primary);
+}
+
+.nav-alert__pill--updated {
+    background-color: #f97316;
+}
+
 .dropdown.show {
     display: block;
 }
@@ -516,6 +547,81 @@ main {
     & tr:hover {
         background-color: var(--bg);
     }
+}
+
+.case-id-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.case-flags {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.case-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+    line-height: 1.1;
+}
+
+.case-flag--new {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 18%, var(--bg));
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+.case-flag--updated {
+    color: #9a3412;
+    background: #fff7ed;
+    border-color: #fdba74;
+}
+
+.case-legend {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin: 0.75rem 0 0.25rem;
+}
+
+.case-legend__flags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.table tr.case-row-new {
+    background-color: color-mix(in srgb, var(--primary) 8%, var(--bg));
+}
+
+.table tr.case-row-updated {
+    background-color: color-mix(in srgb, #fb923c 8%, var(--bg));
+}
+
+.table tr.case-row-new.case-row-updated {
+    background-color: color-mix(in srgb, var(--primary) 6%, #fb923c 6%, var(--bg));
+}
+
+.table tr.case-row-new:hover {
+    background-color: color-mix(in srgb, var(--primary) 12%, var(--bg));
+}
+
+.table tr.case-row-updated:hover {
+    background-color: color-mix(in srgb, #fb923c 12%, var(--bg));
+}
+
+.table tr.case-row-new.case-row-updated:hover {
+    background-color: color-mix(in srgb, var(--primary) 9%, #fb923c 9%, var(--bg));
 }
 
 /* Grid */

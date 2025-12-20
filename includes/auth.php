@@ -21,7 +21,7 @@ function getCurrentUser() {
     $conn = getDBConnection();
     $userId = $_SESSION['user_id'];
     
-    $sql = "SELECT id, username, email, name AS full_name, COALESCE(NULLIF(pic, ''), 'default.png') AS profile_picture, lang, userlevel, colorscheme, twofa_enabled FROM tbl_users WHERE id = ?";
+    $sql = "SELECT id, username, email, name AS full_name, COALESCE(NULLIF(pic, ''), 'default.png') AS profile_picture, lang, userlevel, colorscheme, twofa_enabled, last_login FROM tbl_users WHERE id = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $userId);
     $stmt->execute();
@@ -36,6 +36,10 @@ function getCurrentUser() {
     }
 
     return $user;
+}
+
+function getLastLoginAt(): ?string {
+    return $_SESSION['last_login_at'] ?? null;
 }
 
 function getUserLevelValue(?array $user): int {
@@ -55,26 +59,41 @@ function userHasAdminAccess(?array $user): bool {
     return $level >= 1000;
 }
 
+function stampLastLogin(int $userId): void {
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("UPDATE tbl_users SET last_login = NOW() WHERE id = ?");
+    if ($stmt) {
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $stmt->close();
+    }
+    closeDBConnection($conn);
+}
+
 // Login user (returns ['success'=>bool, 'requires_2fa'=>bool])
 function loginUser($username, $password) {
     $conn = getDBConnection();
     
-    $stmt = $conn->prepare("SELECT id, username, password, twofa_enabled, twofa_secret FROM tbl_users WHERE username = ?");
+    $stmt = $conn->prepare("SELECT id, username, password, twofa_enabled, twofa_secret, last_login FROM tbl_users WHERE username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
     
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
+        $previousLogin = $user['last_login'] ?? null;
         
         if (password_verify($password, $user['password'])) {
             $requires2fa = !empty($user['twofa_enabled']) && !empty($user['twofa_secret']);
             if ($requires2fa) {
                 $_SESSION['pending_2fa_user'] = (int)$user['id'];
                 $_SESSION['pending_2fa_username'] = $user['username'];
+                $_SESSION['pending_last_login_at'] = $previousLogin;
             } else {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
+                $_SESSION['last_login_at'] = $previousLogin;
+                stampLastLogin((int)$user['id']);
             }
             
             $stmt->close();
@@ -155,7 +174,7 @@ function completeTwoFactorLogin(string $code): bool
 
     $userId = (int)$_SESSION['pending_2fa_user'];
     $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT id, username, twofa_secret FROM tbl_users WHERE id = ?");
+    $stmt = $conn->prepare("SELECT id, username, twofa_secret, last_login FROM tbl_users WHERE id = ?");
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -171,9 +190,13 @@ function completeTwoFactorLogin(string $code): bool
         return false;
     }
 
+    $previousLogin = $_SESSION['pending_last_login_at'] ?? ($user['last_login'] ?? null);
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['username'] = $user['username'];
+    $_SESSION['last_login_at'] = $previousLogin;
+    stampLastLogin((int)$user['id']);
     unset($_SESSION['pending_2fa_user'], $_SESSION['pending_2fa_username']);
+    unset($_SESSION['pending_last_login_at']);
 
     return true;
 }

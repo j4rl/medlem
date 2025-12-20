@@ -62,7 +62,7 @@ function fetchCaseHandlersMap($conn, array $caseIds): array {
 
     $placeholders = implode(',', array_fill(0, count($caseIds), '?'));
     $types = str_repeat('i', count($caseIds));
-    $sql = "SELECT ch.case_id, u.id AS user_id, u.name AS full_name
+    $sql = "SELECT ch.case_id, u.id AS user_id, u.name AS full_name, ch.assigned_at
             FROM case_handlers ch
             JOIN tbl_users u ON ch.user_id = u.id
             WHERE ch.case_id IN ($placeholders)
@@ -78,10 +78,11 @@ function fetchCaseHandlersMap($conn, array $caseIds): array {
     while ($row = $result->fetch_assoc()) {
         $caseId = (int)$row['case_id'];
         if (!isset($map[$caseId])) {
-            $map[$caseId] = ['ids' => [], 'names' => []];
+            $map[$caseId] = ['ids' => [], 'names' => [], 'assigned_at' => []];
         }
         $map[$caseId]['ids'][] = (int)$row['user_id'];
         $map[$caseId]['names'][] = $row['full_name'];
+        $map[$caseId]['assigned_at'][] = $row['assigned_at'] ?? null;
     }
 
     $stmt->close();
@@ -93,16 +94,19 @@ function applyCaseHandlers(array &$cases, array $handlerMap): void {
         $caseId = (int)($case['id'] ?? 0);
         $handlerIds = $handlerMap[$caseId]['ids'] ?? [];
         $handlerNames = $handlerMap[$caseId]['names'] ?? [];
+        $handlerAssignedAt = $handlerMap[$caseId]['assigned_at'] ?? [];
 
         if (empty($handlerIds) && !empty($case['assigned_to'])) {
             $handlerIds = [(int)$case['assigned_to']];
             if (!empty($case['assignee_name'])) {
                 $handlerNames = [$case['assignee_name']];
             }
+            $handlerAssignedAt = [$case['updated_at'] ?? $case['created_at'] ?? null];
         }
 
         $case['handler_ids'] = $handlerIds;
         $case['handler_names'] = $handlerNames;
+        $case['handler_assigned_at'] = $handlerAssignedAt;
 
         if (!empty($handlerNames)) {
             $case['assignee_name'] = implode(', ', $handlerNames);
@@ -631,6 +635,131 @@ function getCaseStatistics($userId = null) {
             'high' => $highCount,
             'urgent' => $urgentCount,
         ],
+    ];
+}
+
+function normalizeSince(?string $since): ?string {
+    if (!$since) {
+        return null;
+    }
+    $timestamp = strtotime($since);
+    if ($timestamp === false) {
+        return null;
+    }
+    return date('Y-m-d H:i:s', $timestamp);
+}
+
+function annotateCaseRecency(array $cases, int $userId, ?string $lastLoginAt): array {
+    $normalized = normalizeSince($lastLoginAt);
+    $lastLoginTs = $normalized ? strtotime($normalized) : null;
+
+    foreach ($cases as &$case) {
+        $case['is_new_assignment'] = false;
+        $case['is_recent_update'] = false;
+
+        if (!$lastLoginTs) {
+            continue;
+        }
+
+        $updatedAt = $case['updated_at'] ?? null;
+        $updatedTs = $updatedAt ? strtotime($updatedAt) : null;
+        if ($updatedTs && $updatedTs > $lastLoginTs) {
+            $case['is_recent_update'] = true;
+        }
+
+        $handlerIds = $case['handler_ids'] ?? [];
+        $handlerAssignedAt = $case['handler_assigned_at'] ?? [];
+        foreach ($handlerIds as $idx => $handlerId) {
+            if ((int)$handlerId !== $userId) {
+                continue;
+            }
+            $assignedAt = $handlerAssignedAt[$idx] ?? null;
+            if ($assignedAt && strtotime($assignedAt) > $lastLoginTs) {
+                $case['is_new_assignment'] = true;
+                break;
+            }
+        }
+
+        if (!$case['is_new_assignment'] && empty($handlerAssignedAt) && (int)($case['assigned_to'] ?? 0) === $userId) {
+            $candidateTs = null;
+            if (!empty($case['created_at'])) {
+                $candidateTs = strtotime($case['created_at']);
+            }
+            if (!$candidateTs && $updatedTs) {
+                $candidateTs = $updatedTs;
+            }
+            if ($candidateTs && $candidateTs > $lastLoginTs) {
+                $case['is_new_assignment'] = true;
+            }
+        }
+    }
+    unset($case);
+
+    return $cases;
+}
+
+function getCaseNotifications(int $userId, ?string $since = null): array {
+    $normalized = normalizeSince($since);
+    if (!$normalized) {
+        return ['new_assignments' => 0, 'recent_updates' => 0];
+    }
+
+    $conn = getDBConnection();
+    $hasHandlers = caseHandlersTableExists($conn);
+    $newAssignments = 0;
+    $recentUpdates = 0;
+
+    if ($hasHandlers) {
+        $stmt = $conn->prepare("SELECT COUNT(DISTINCT ch.case_id) AS cnt
+                                FROM case_handlers ch
+                                JOIN tbl_cases c ON c.id = ch.case_id
+                                WHERE ch.user_id = ? AND ch.assigned_at > ?");
+        if ($stmt) {
+            $stmt->bind_param("is", $userId, $normalized);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $newAssignments = (int)($result->fetch_assoc()['cnt'] ?? 0);
+            $stmt->close();
+        }
+    } else {
+        $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM tbl_cases c WHERE c.taker_id = ? AND (c.created > ? OR c.changed > ?)");
+        if ($stmt) {
+            $stmt->bind_param("iss", $userId, $normalized, $normalized);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $newAssignments = (int)($result->fetch_assoc()['cnt'] ?? 0);
+            $stmt->close();
+        }
+    }
+
+    if ($hasHandlers) {
+        $stmt = $conn->prepare("SELECT COUNT(DISTINCT c.id) AS cnt
+                                FROM tbl_cases c
+                                LEFT JOIN case_handlers ch ON ch.case_id = c.id
+                                WHERE c.changed > ? AND (c.user_id = ? OR c.taker_id = ? OR ch.user_id = ?)");
+        if ($stmt) {
+            $stmt->bind_param("siii", $normalized, $userId, $userId, $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $recentUpdates = (int)($result->fetch_assoc()['cnt'] ?? 0);
+            $stmt->close();
+        }
+    } else {
+        $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM tbl_cases c WHERE c.changed > ? AND (c.user_id = ? OR c.taker_id = ?)");
+        if ($stmt) {
+            $stmt->bind_param("sii", $normalized, $userId, $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $recentUpdates = (int)($result->fetch_assoc()['cnt'] ?? 0);
+            $stmt->close();
+        }
+    }
+
+    closeDBConnection($conn);
+
+    return [
+        'new_assignments' => $newAssignments,
+        'recent_updates' => $recentUpdates,
     ];
 }
 

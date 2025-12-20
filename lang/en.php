@@ -108,6 +108,10 @@ return [
     'created_at' => 'Created',
     'updated_at' => 'Updated',
     'resolved_at' => 'Resolved',
+    'flag_new_assignment' => 'New assignment',
+    'flag_recent_update' => 'Updated since last login',
+    'since_last_login' => 'Since your last login: %s',
+    'case_alerts_tooltip' => 'New assignments: %d · Updated cases: %d',
     
     // Status
     'status_no_action' => 'No action',

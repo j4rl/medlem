@@ -4,9 +4,11 @@ require_once __DIR__ . '/../includes/cases.php';
 requireLogin();
 
 $user = getCurrentUser();
+$lastLoginAt = getLastLoginAt() ?? ($user['last_login'] ?? null);
 $statusFilter = $_GET['status'] ?? null;
 $scope = $_GET['scope'] ?? 'related'; // related | created | assigned
 $cases = getAllCases($user['id'], $statusFilter, $scope);
+$cases = annotateCaseRecency($cases, (int)$user['id'], $lastLoginAt);
 $myCases = getAllCases($user['id'], null, 'created');
 $myAssignments = getAllCases($user['id'], null, 'assigned');
 
@@ -59,6 +61,15 @@ include __DIR__ . '/../includes/header.php';
                     </a>
                 </div>
             </div>
+            <?php if ($lastLoginAt): ?>
+                <div class="case-legend">
+                    <div class="case-legend__flags">
+                        <span class="case-flag case-flag--new"><?php echo __('flag_new_assignment'); ?></span>
+                        <span class="case-flag case-flag--updated"><?php echo __('flag_recent_update'); ?></span>
+                    </div>
+                    <span class="muted"><?php echo sprintf(__('since_last_login'), date('Y-m-d H:i', strtotime($lastLoginAt))); ?></span>
+                </div>
+            <?php endif; ?>
 
             <?php if (count($cases) > 0): ?>
             <table class="table" id="casesTable">
@@ -75,8 +86,32 @@ include __DIR__ . '/../includes/header.php';
                 </thead>
                 <tbody>
                     <?php foreach ($cases as $case): ?>
-                    <tr onclick="window.location.href='case-edit.php?id=<?php echo $case['id']; ?>'" style="cursor: pointer;">
-                        <td><?php echo htmlspecialchars($case['case_number']); ?></td>
+                    <?php
+                        $rowClasses = [];
+                        if (!empty($case['is_new_assignment'])) {
+                            $rowClasses[] = 'case-row-new';
+                        }
+                        if (!empty($case['is_recent_update'])) {
+                            $rowClasses[] = 'case-row-updated';
+                        }
+                        $rowClassAttr = $rowClasses ? ' class="' . implode(' ', $rowClasses) . '"' : '';
+                    ?>
+                    <tr<?php echo $rowClassAttr; ?> onclick="window.location.href='case-edit.php?id=<?php echo $case['id']; ?>'" style="cursor: pointer;">
+                        <td>
+                            <div class="case-id-cell">
+                                <div><?php echo htmlspecialchars($case['case_number']); ?></div>
+                                <?php if (!empty($case['is_new_assignment']) || !empty($case['is_recent_update'])): ?>
+                                    <div class="case-flags">
+                                        <?php if (!empty($case['is_new_assignment'])): ?>
+                                            <span class="case-flag case-flag--new"><?php echo __('flag_new_assignment'); ?></span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($case['is_recent_update'])): ?>
+                                            <span class="case-flag case-flag--updated"><?php echo __('flag_recent_update'); ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </td>
                         <td><?php echo htmlspecialchars($case['title']); ?></td>
                         <td><?php echo htmlspecialchars($case['creator_name']); ?></td>
                         <td>
