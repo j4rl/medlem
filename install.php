@@ -1,3 +1,9 @@
+<?php
+if (getenv('ALLOW_INSTALL') !== '1') {
+    http_response_code(403);
+    exit('Installation is disabled.');
+}
+?>
 <!DOCTYPE html>
 <html lang="sv">
 <head>
@@ -103,10 +109,8 @@
                     </div>
                     
                     <div style="margin-top: 1rem; padding: 1rem; background-color: var(--bg); border-radius: 0.375rem;">
-                        <strong>Default Login:</strong><br>
-                        Username: <code>admin</code><br>
-                        Password: <code>admin123</code><br>
-                        <small style="color: var(--muted);">⚠️ Change this password immediately!</small>
+                        <strong>Admin account:</strong><br>
+                        Create the first admin with a unique password for this installation.
                     </div>
                 <?php else: ?>
                     <div class="alert alert-info" style="margin-top: 1.5rem;">

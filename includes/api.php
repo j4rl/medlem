@@ -14,6 +14,14 @@ if (!isLoggedIn()) {
 
 $action = $_GET['action'] ?? '';
 $user = getCurrentUser();
+$isAdmin = userHasAdminAccess($user);
+
+function denyCaseAccess(): void
+{
+    http_response_code(403);
+    echo json_encode(['error' => 'Access denied']);
+    exit();
+}
 
 switch ($action) {
     case 'get_stats':
@@ -28,7 +36,10 @@ switch ($action) {
         break;
         
     case 'get_case':
-        $caseId = $_GET['id'] ?? 0;
+        $caseId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        if (!userCanAccessCaseId($caseId, (int)$user['id'], $isAdmin)) {
+            denyCaseAccess();
+        }
         $case = getCaseById($caseId);
         if ($case) {
             $comments = getCaseComments($caseId);
@@ -42,8 +53,12 @@ switch ($action) {
         
     case 'add_comment':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $caseId = $_POST['case_id'] ?? 0;
+            $caseId = isset($_POST['case_id']) ? (int)$_POST['case_id'] : 0;
             $comment = $_POST['comment'] ?? '';
+
+            if (!userCanAccessCaseId($caseId, (int)$user['id'], $isAdmin)) {
+                denyCaseAccess();
+            }
             
             if (empty($comment)) {
                 http_response_code(400);
@@ -62,8 +77,12 @@ switch ($action) {
         
     case 'update_case_status':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $caseId = $_POST['case_id'] ?? 0;
+            $caseId = isset($_POST['case_id']) ? (int)$_POST['case_id'] : 0;
             $status = $_POST['status'] ?? '';
+
+            if (!userCanAccessCaseId($caseId, (int)$user['id'], $isAdmin)) {
+                denyCaseAccess();
+            }
             
             $case = getCaseById($caseId);
             $handlerIds = $case['handler_ids'] ?? ($case['assigned_to'] ?? null);

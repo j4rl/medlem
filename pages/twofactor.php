@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
             
             <form method="POST" action="">
+                <?php echo csrfField(); ?>
                 <div class="form-group">
                     <label class="form-label" for="code"><?php echo __('twofa_code_label'); ?></label>
                     <input type="text" id="code" name="code" class="form-input" inputmode="numeric" autocomplete="one-time-code" required>

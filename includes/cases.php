@@ -25,6 +25,171 @@ function decryptField($value) {
     }
 }
 
+function richTextContentIsEmpty($value): bool {
+    $text = html_entity_decode(strip_tags((string)$value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = str_replace("\xc2\xa0", ' ', $text);
+    return trim($text) === '';
+}
+
+function richTextUrlIsSafe(string $url, bool $allowDataImage = false): bool {
+    $url = trim(html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    if ($url === '' || preg_match('/[\x00-\x1f\x7f]/', $url)) {
+        return false;
+    }
+
+    if ($url[0] === '#' || strpos($url, '/') === 0 || strpos($url, './') === 0 || strpos($url, '../') === 0) {
+        return true;
+    }
+
+    $scheme = parse_url($url, PHP_URL_SCHEME);
+    if ($scheme === null || $scheme === '') {
+        return !preg_match('/^\s*(javascript|vbscript|data):/i', $url);
+    }
+
+    $scheme = strtolower($scheme);
+    if (in_array($scheme, ['http', 'https', 'mailto', 'tel'], true)) {
+        return true;
+    }
+
+    return $allowDataImage && preg_match('#^data:image/(png|gif|jpe?g|webp);base64,[a-z0-9+/=\s]+$#i', $url);
+}
+
+function sanitizeRichTextNode($node, $doc, array $allowedTags, array $allowedAttrs): void {
+    for ($child = $node->firstChild; $child !== null; $child = $next) {
+        $next = $child->nextSibling;
+
+        if ($child->nodeType === XML_COMMENT_NODE) {
+            $node->removeChild($child);
+            continue;
+        }
+
+        if ($child->nodeType !== XML_ELEMENT_NODE) {
+            continue;
+        }
+
+        $tag = strtolower($child->nodeName);
+        if (in_array($tag, ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'option'], true)) {
+            $node->removeChild($child);
+            continue;
+        }
+
+        if (!isset($allowedTags[$tag])) {
+            sanitizeRichTextNode($child, $doc, $allowedTags, $allowedAttrs);
+            while ($child->firstChild !== null) {
+                $node->insertBefore($child->firstChild, $child);
+            }
+            $node->removeChild($child);
+            continue;
+        }
+
+        if ($child->hasAttributes()) {
+            $removeAttrs = [];
+            foreach ($child->attributes as $attr) {
+                $name = strtolower($attr->nodeName);
+                $value = trim($attr->nodeValue ?? '');
+                $tagAttrs = $allowedAttrs[$tag] ?? [];
+                $globalAttrs = $allowedAttrs['*'] ?? [];
+                $isAllowed = in_array($name, $tagAttrs, true) || in_array($name, $globalAttrs, true);
+
+                if (!$isAllowed || strpos($name, 'on') === 0 || strpos($name, 'data-mce-') === 0) {
+                    $removeAttrs[] = $name;
+                    continue;
+                }
+
+                if (($name === 'href' || $name === 'src') && !richTextUrlIsSafe($value, $tag === 'img')) {
+                    $removeAttrs[] = $name;
+                    continue;
+                }
+
+                if (($name === 'width' || $name === 'height') && !preg_match('/^\d{1,4}%?$/', $value)) {
+                    $removeAttrs[] = $name;
+                    continue;
+                }
+
+                if (($name === 'colspan' || $name === 'rowspan') && !preg_match('/^[1-9]\d{0,1}$/', $value)) {
+                    $removeAttrs[] = $name;
+                    continue;
+                }
+
+                if ($name === 'target' && !in_array($value, ['_blank', '_self'], true)) {
+                    $removeAttrs[] = $name;
+                }
+            }
+
+            foreach ($removeAttrs as $name) {
+                $child->removeAttribute($name);
+            }
+
+            if ($tag === 'a' && $child->getAttribute('target') === '_blank') {
+                $child->setAttribute('rel', 'noopener noreferrer');
+            }
+        }
+
+        sanitizeRichTextNode($child, $doc, $allowedTags, $allowedAttrs);
+    }
+}
+
+function sanitizeRichTextHtml($html): string {
+    $html = (string)$html;
+    if ($html === '') {
+        return '';
+    }
+
+    if (!class_exists('DOMDocument')) {
+        return nl2br(htmlspecialchars(strip_tags($html), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+    }
+
+    $allowedTags = array_fill_keys([
+        'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'span',
+        'ul', 'ol', 'li', 'blockquote', 'code', 'pre',
+        'h1', 'h2', 'h3', 'h4', 'hr', 'a',
+        'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+        'sub', 'sup'
+    ], true);
+    $allowedAttrs = [
+        '*' => ['title'],
+        'a' => ['href', 'target', 'rel', 'title'],
+        'td' => ['colspan', 'rowspan'],
+        'th' => ['colspan', 'rowspan'],
+    ];
+
+    $previous = libxml_use_internal_errors(true);
+    $doc = new DOMDocument('1.0', 'UTF-8');
+    $doc->loadHTML(
+        '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><div id="richtext-root">' . $html . '</div></body></html>',
+        LIBXML_HTML_NODEFDTD | LIBXML_NOERROR | LIBXML_NOWARNING
+    );
+    libxml_clear_errors();
+    libxml_use_internal_errors($previous);
+
+    $root = $doc->getElementById('richtext-root');
+    if (!$root) {
+        return '';
+    }
+
+    sanitizeRichTextNode($root, $doc, $allowedTags, $allowedAttrs);
+
+    $output = '';
+    foreach ($root->childNodes as $child) {
+        $output .= $doc->saveHTML($child);
+    }
+
+    return trim($output);
+}
+
+function renderRichTextContent($value): string {
+    $value = (string)$value;
+    if ($value === '') {
+        return '';
+    }
+
+    if ($value === strip_tags($value)) {
+        return nl2br(htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+    }
+
+    return sanitizeRichTextHtml($value);
+}
+
 function normalizeHandlerIds($value): array {
     $ids = [];
     if (is_array($value)) {
@@ -157,6 +322,55 @@ function getPriorityOptions(): array {
         $options[$code] = $label;
     }
     return $options;
+}
+
+function caseIndicatorClassValue(string $value): string {
+    $classValue = preg_replace('/[^a-z0-9-]+/', '-', strtolower(str_replace('_', '-', $value)));
+    return trim($classValue ?: 'unknown', '-');
+}
+
+function caseIndicatorIcon(string $type, string $value): string {
+    $icons = [
+        'status' => [
+            'no_action' => '○',
+            'in_progress' => '↻',
+            'resolved' => '✓',
+            'closed' => '■',
+        ],
+        'priority' => [
+            'low' => '↓',
+            'medium' => '•',
+            'high' => '!',
+            'urgent' => '!!',
+        ],
+    ];
+
+    return $icons[$type][$value] ?? '?';
+}
+
+function renderCaseIndicator(string $type, string $value): string {
+    if ($type === 'status') {
+        $value = normalizeStatusValue($value);
+        $label = function_exists('__') ? __('status_' . $value) : $value;
+    } elseif ($type === 'priority') {
+        $value = normalizePriorityValue($value);
+        $label = function_exists('__') ? __('priority_' . $value) : $value;
+    } else {
+        $label = $value;
+    }
+
+    $typeClass = caseIndicatorClassValue($type);
+    $valueClass = caseIndicatorClassValue($value);
+    $label = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
+    $icon = htmlspecialchars(caseIndicatorIcon($type, $value), ENT_QUOTES, 'UTF-8');
+
+    return '<span class="case-icon case-icon--' . $typeClass . ' case-icon--' . $typeClass . '-' . $valueClass . '" title="' . $label . '" aria-label="' . $label . '" role="img">' . $icon . '</span>';
+}
+
+function renderCaseIndicators(array $case): string {
+    $status = (string)($case['status'] ?? 'in_progress');
+    $priority = (string)($case['priority'] ?? 'medium');
+    return '<span class="case-indicators">' . renderCaseIndicator('status', $status) . renderCaseIndicator('priority', $priority) . '</span>';
 }
 
 function normalizeStatusValue($value, $fallback = 'in_progress') {
@@ -315,6 +529,7 @@ function mapCaseRow($row) {
 function createCase($title, $description, $priority, $createdBy, $assignedTo = null, $caseData = [], $memberData = null) {
     $conn = getDBConnection();
 
+    $description = sanitizeRichTextHtml($description);
     $priority = normalizePriorityValue($priority);
     $caseData = buildCaseDataPayload($caseData, $description);
     $caseDataJson = formatCaseData($caseData);
@@ -473,10 +688,58 @@ function getCaseById($caseId) {
     return $case;
 }
 
+function userCanAccessCaseId(int $caseId, int $userId, bool $isAdmin = false): bool {
+    if ($isAdmin) {
+        return true;
+    }
+
+    if ($caseId <= 0 || $userId <= 0) {
+        return false;
+    }
+
+    $conn = getDBConnection();
+    $hasHandlers = caseHandlersTableExists($conn);
+
+    if ($hasHandlers) {
+        $sql = "SELECT 1
+                FROM tbl_cases c
+                WHERE c.id = ?
+                  AND (
+                      c.user_id = ?
+                      OR c.taker_id = ?
+                      OR EXISTS (
+                          SELECT 1
+                          FROM case_handlers ch
+                          WHERE ch.case_id = c.id AND ch.user_id = ?
+                      )
+                  )
+                LIMIT 1";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("iiii", $caseId, $userId, $userId, $userId);
+    } else {
+        $sql = "SELECT 1
+                FROM tbl_cases c
+                WHERE c.id = ? AND (c.user_id = ? OR c.taker_id = ?)
+                LIMIT 1";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("iii", $caseId, $userId, $userId);
+    }
+
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $allowed = $result && $result->num_rows > 0;
+
+    $stmt->close();
+    closeDBConnection($conn);
+
+    return $allowed;
+}
+
 // Update case
 function updateCase($caseId, $title, $description, $status, $priority, $assignedTo = null, $caseData = [], $memberData = null) {
     $conn = getDBConnection();
 
+    $description = sanitizeRichTextHtml($description);
     $status = normalizeStatusValue($status);
     $statusForDb = statusToDbValue($status);
     $priority = normalizePriorityValue($priority);

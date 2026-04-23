@@ -14,6 +14,20 @@ RewriteRule ^config/ - [F,L]
     Deny from all
 </FilesMatch>
 
+# Block raw data/import dumps and database dumps from direct download
+<FilesMatch "\.(csv|sql)$">
+    Order allow,deny
+    Deny from all
+    Require all denied
+</FilesMatch>
+
+# Installation helper must not be web-accessible after setup
+<Files "install.php">
+    Order allow,deny
+    Deny from all
+    Require all denied
+</Files>
+
 # Set default charset
 AddDefaultCharset UTF-8
 

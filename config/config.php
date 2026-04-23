@@ -5,10 +5,17 @@ if (!defined('BASE_URL')) {
     define('BASE_URL', '/medlem');
 }
 
+// Optional local secrets file for development/installed instances.
+// This file must stay out of version control.
+$localSecretsFile = __DIR__ . '/secrets.local.php';
+if (file_exists($localSecretsFile)) {
+    require_once $localSecretsFile;
+}
+
 // Encryption key for member data at rest (32 bytes: raw/hex/base64).
-// Preferred: set the DATA_ENCRYPTION_KEY environment variable.
-// Fallback: set it directly here (leave empty to disable).
+// Set DATA_ENCRYPTION_KEY in the environment. Leave empty to disable imports
+// and avoid shipping a reusable encryption key with the codebase.
 if (!defined('DATA_ENCRYPTION_KEY')) {
     $envKey = getenv('DATA_ENCRYPTION_KEY');
-    define('DATA_ENCRYPTION_KEY', $envKey !== false ? $envKey : '9f3c2b8a6d7e1c04b5a9f2d8c1e7a3b4096c8d2f1a7b5e3c0d4f8a2b6e1c9d73');
+    define('DATA_ENCRYPTION_KEY', $envKey !== false ? $envKey : '');
 }

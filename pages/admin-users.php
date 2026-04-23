@@ -140,6 +140,7 @@ include __DIR__ . '/../includes/header.php';
 
             <?php if ($view === 'create'): ?>
                 <form method="POST" class="form-grid">
+                    <?php echo csrfField(); ?>
                     <input type="hidden" name="action" value="create">
                     <div class="form-grid">
                         <div class="form-group">
@@ -221,6 +222,7 @@ include __DIR__ . '/../includes/header.php';
                     <a href="admin-users.php" class="btn btn-secondary btn-sm"><?php echo __('back'); ?></a>
                 </div>
                 <form method="POST" class="form-grid">
+                    <?php echo csrfField(); ?>
                     <input type="hidden" name="action" value="update">
                     <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
                     <div class="form-grid">
@@ -252,17 +254,20 @@ include __DIR__ . '/../includes/header.php';
 
                 <div class="flex gap-2" style="margin-top: 1rem; flex-wrap: wrap;">
                     <form method="POST" style="display:inline-flex; gap: 0.5rem; align-items:center;">
+                        <?php echo csrfField(); ?>
                         <input type="hidden" name="action" value="one_time_password">
                         <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
                         <button type="submit" class="btn btn-secondary btn-sm">Reset password (engång)</button>
                     </form>
                     <form method="POST" style="display:inline-flex; gap: 0.5rem; align-items:center;">
+                        <?php echo csrfField(); ?>
                         <input type="hidden" name="action" value="disable_2fa">
                         <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
                         <button type="submit" class="btn btn-danger btn-sm">Reset 2FA</button>
                     </form>
                     <?php if (($current['id'] ?? 0) !== (int)$editUser['id']): ?>
                         <form method="POST" style="display:inline-flex; gap: 0.5rem; align-items:center;" onsubmit="return confirm('<?php echo __('confirm_delete_case'); ?>');">
+                            <?php echo csrfField(); ?>
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
                             <button type="submit" class="btn btn-danger btn-sm"><?php echo __('delete'); ?></button>
@@ -301,6 +306,7 @@ include __DIR__ . '/../includes/header.php';
                                     <a href="admin-users.php?view=edit&id=<?php echo (int)$u['id']; ?>" class="btn btn-secondary btn-sm"><?php echo __('edit'); ?></a>
                                     <?php if (($current['id'] ?? 0) !== (int)$u['id']): ?>
                                         <form method="POST" style="display:inline-block; margin-left: 4px;" onsubmit="return confirm('<?php echo __('confirm_delete_case'); ?>');">
+                                            <?php echo csrfField(); ?>
                                             <input type="hidden" name="action" value="delete">
                                             <input type="hidden" name="user_id" value="<?php echo (int)$u['id']; ?>">
                                             <button type="submit" class="btn btn-danger btn-sm"><?php echo __('delete'); ?></button>

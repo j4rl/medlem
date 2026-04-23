@@ -72,6 +72,7 @@ include __DIR__ . '/../includes/header.php';
             <div class="theme-manager-grid">
                 <?php foreach ($themes as $theme): ?>
                 <form method="POST" class="theme-editor">
+                    <?php echo csrfField(); ?>
                     <input type="hidden" name="theme_id" value="<?php echo $theme['id']; ?>">
                     <div class="theme-editor-header">
                         <div>
@@ -119,6 +120,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="card mt-3">
             <h2 class="card-header"><?php echo __('add_theme'); ?></h2>
             <form method="POST">
+                <?php echo csrfField(); ?>
                 <div class="grid grid-3 theme-fields">
                     <?php 
                     $fields = [

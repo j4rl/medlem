@@ -1,11 +1,10 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/twofactor.php';
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+startAppSession();
+requireCsrfToken();
 
 // Check if user is logged in
 function isLoggedIn() {
@@ -84,6 +83,7 @@ function loginUser($username, $password) {
         $previousLogin = $user['last_login'] ?? null;
         
         if (password_verify($password, $user['password'])) {
+            session_regenerate_id(true);
             $requires2fa = !empty($user['twofa_enabled']) && !empty($user['twofa_secret']);
             if ($requires2fa) {
                 $_SESSION['pending_2fa_user'] = (int)$user['id'];
@@ -157,6 +157,11 @@ function registerUser($username, $email, $password, $fullName, $phone = '') {
 
 // Logout user
 function logoutUser() {
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+    }
     session_unset();
     session_destroy();
 }
@@ -190,6 +195,7 @@ function completeTwoFactorLogin(string $code): bool
         return false;
     }
 
+    session_regenerate_id(true);
     $previousLogin = $_SESSION['pending_last_login_at'] ?? ($user['last_login'] ?? null);
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['username'] = $user['username'];

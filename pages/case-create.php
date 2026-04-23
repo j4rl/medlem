@@ -20,18 +20,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = $_POST['title'] ?? '';
-    $caseBody = $_POST['case_body'] ?? '';
+    $caseBody = sanitizeRichTextHtml($_POST['case_body'] ?? '');
     $description = $caseBody; // keep legacy field populated
     $priority = $_POST['priority'] ?? 'medium';
     $assignedTo = normalizeHandlerIds($_POST['assigned_to'] ?? []);
     $receivedAt = $_POST['received_at'] ?? '';
     $recipient = $_POST['recipient'] ?? '';
     $handlerLabel = $_POST['handler'] ?? '';
-$memberLookup = $_POST['member_lookup'] ?? '';
-$memberDataRaw = $_POST['member_data'] ?? '';
-$caseDataRaw = $_POST['case_data'] ?? '';
+    $memberLookup = $_POST['member_lookup'] ?? '';
+    $memberDataRaw = $_POST['member_data'] ?? '';
+    $caseDataRaw = $_POST['case_data'] ?? '';
     
-    if (empty($title) || empty($description)) {
+    if (empty($title) || richTextContentIsEmpty($description)) {
         $error = __('error_required');
     } else {
         $caseData = [];
@@ -70,8 +70,8 @@ include __DIR__ . '/../includes/header.php';
             <div class="section-header">
                 <div>
                     <p class="eyebrow"><?php echo __('create_case'); ?></p>
-                    <h1>Ärendehantering</h1>
-                    <p class="muted"><?php echo __('case_body'); ?> + JSON-data sparas i `case_data`.</p>
+                    <h1><?php echo __('case_create_heading'); ?></h1>
+                    <p class="muted"><?php echo __('case_create_hint'); ?></p>
                 </div>
                 <div class="hero-actions">
                     <a href="cases.php" class="btn btn-secondary btn-sm"><?php echo __('cancel'); ?></a>
@@ -83,48 +83,87 @@ include __DIR__ . '/../includes/header.php';
             <?php endif; ?>
             
             <form method="POST" action="" id="caseForm">
-                <div class="form-grid">
+                <?php echo csrfField(); ?>
+                <section class="case-section">
+                    <h2><?php echo __('case_member_section'); ?></h2>
                     <div class="form-group">
-                        <label class="form-label" for="title"><?php echo __('title'); ?> *</label>
-                        <input type="text" id="title" name="title" class="form-input" required autofocus
-                               value="<?php echo htmlspecialchars($_POST['title'] ?? ''); ?>">
+                        <label class="form-label" for="member_lookup"><?php echo __('member_lookup'); ?></label>
+                        <div class="flex gap-1">
+                            <input type="number" id="member_lookup" name="member_lookup" class="form-input"
+                                   placeholder="12345" value="<?php echo htmlspecialchars($_POST['member_lookup'] ?? ''); ?>" style="flex: 1;">
+                            <button type="button" id="fetchMemberBtn" class="btn btn-secondary btn-sm"><?php echo __('fetch_member'); ?></button>
+                        </div>
+                        <p class="muted" style="margin-top: 0.35rem;"><?php echo __('member_context_hint'); ?></p>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" for="priority"><?php echo __('priority'); ?></label>
-                        <select id="priority" name="priority" class="form-select">
-                            <option value="low" <?php echo ($_POST['priority'] ?? '') === 'low' ? 'selected' : ''; ?>>
-                                <?php echo __('priority_low'); ?>
-                            </option>
-                            <option value="medium" <?php echo ($_POST['priority'] ?? 'medium') === 'medium' ? 'selected' : ''; ?>>
-                                <?php echo __('priority_medium'); ?>
-                            </option>
-                            <option value="high" <?php echo ($_POST['priority'] ?? '') === 'high' ? 'selected' : ''; ?>>
-                                <?php echo __('priority_high'); ?>
-                            </option>
-                            <option value="urgent" <?php echo ($_POST['priority'] ?? '') === 'urgent' ? 'selected' : ''; ?>>
-                                <?php echo __('priority_urgent'); ?>
-                            </option>
-                        </select>
-                    </div>
-                </div>
 
-                <div class="form-grid">
                     <div class="form-group">
-                        <label class="form-label" for="received_at"><?php echo __('received_at'); ?></label>
-                        <input type="datetime-local" id="received_at" name="received_at" class="form-input"
-                               value="<?php echo htmlspecialchars($_POST['received_at'] ?? $now); ?>">
+                        <div class="flex-between" style="align-items: center; gap: 0.5rem;">
+                            <label class="form-label" for="member_data"><?php echo __('member_data'); ?></label>
+                            <button type="button" class="btn btn-secondary btn-sm" id="memberPickerCreate"><?php echo __('fetch_member'); ?></button>
+                        </div>
+                        <textarea id="member_data" name="member_data" class="form-textarea" rows="3" placeholder="<?php echo __('member_data'); ?>..." spellcheck="false"><?php echo htmlspecialchars($_POST['member_data'] ?? ''); ?></textarea>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" for="recipient"><?php echo __('recipient'); ?></label>
-                        <input type="text" id="recipient" name="recipient" class="form-input"
-                               value="<?php echo htmlspecialchars($_POST['recipient'] ?? ($user['full_name'] ?? '')); ?>">
-                    </div>
-                </div>
+                </section>
 
-                <div class="form-grid">
+                <section class="case-section">
+                    <h2><?php echo __('case_details_section'); ?></h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="title"><?php echo __('title'); ?> *</label>
+                            <input type="text" id="title" name="title" class="form-input" required autofocus
+                                   value="<?php echo htmlspecialchars($_POST['title'] ?? ''); ?>">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="received_at"><?php echo __('received_at'); ?></label>
+                            <input type="datetime-local" id="received_at" name="received_at" class="form-input"
+                                   value="<?php echo htmlspecialchars($_POST['received_at'] ?? $now); ?>">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="case_body"><?php echo __('case_body'); ?> *</label>
+                        <textarea id="case_body" name="case_body" class="form-textarea tall" data-rich-text="true" required><?php echo htmlspecialchars(sanitizeRichTextHtml($_POST['case_body'] ?? '')); ?></textarea>
+                    </div>
+                </section>
+
+                <section class="case-section">
+                    <h2><?php echo __('case_assignment_section'); ?></h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="recipient"><?php echo __('recipient'); ?></label>
+                            <input type="text" id="recipient" name="recipient" class="form-input"
+                                   value="<?php echo htmlspecialchars($_POST['recipient'] ?? ($user['full_name'] ?? '')); ?>">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="priority"><?php echo __('priority'); ?></label>
+                            <select id="priority" name="priority" class="form-select">
+                                <option value="low" <?php echo ($_POST['priority'] ?? '') === 'low' ? 'selected' : ''; ?>>
+                                    <?php echo __('priority_low'); ?>
+                                </option>
+                                <option value="medium" <?php echo ($_POST['priority'] ?? 'medium') === 'medium' ? 'selected' : ''; ?>>
+                                    <?php echo __('priority_medium'); ?>
+                                </option>
+                                <option value="high" <?php echo ($_POST['priority'] ?? '') === 'high' ? 'selected' : ''; ?>>
+                                    <?php echo __('priority_high'); ?>
+                                </option>
+                                <option value="urgent" <?php echo ($_POST['priority'] ?? '') === 'urgent' ? 'selected' : ''; ?>>
+                                    <?php echo __('priority_urgent'); ?>
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label" for="assigned_to"><?php echo __('case_handlers'); ?></label>
-                        <select id="assigned_to" name="assigned_to[]" class="form-select" multiple size="6">
+                        <select
+                            id="assigned_to"
+                            name="assigned_to[]"
+                            class="form-select"
+                            multiple
+                            data-enhance="multi-select"
+                            data-search-label="<?php echo htmlspecialchars(__('search_handlers')); ?>"
+                            data-empty-label="<?php echo htmlspecialchars(__('no_handler_selected')); ?>"
+                            data-clear-label="<?php echo htmlspecialchars(__('clear')); ?>">
                             <?php foreach ($users as $u): ?>
                             <option value="<?php echo $u['id']; ?>" <?php
                                 echo in_array((int)$u['id'], $selectedAssignees, true) ? 'selected' : '';
@@ -133,36 +172,13 @@ include __DIR__ . '/../includes/header.php';
                             </option>
                             <?php endforeach; ?>
                         </select>
-                        <p class="muted" style="margin-top: 0.35rem;">Håll ned Ctrl/Cmd för att markera flera.</p>
                         <input type="hidden" name="handler" id="handler" value="">
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" for="member_lookup"><?php echo __('member_lookup'); ?></label>
-                        <div class="flex gap-1">
-                            <input type="number" id="member_lookup" name="member_lookup" class="form-input" 
-                                   placeholder="12345" value="<?php echo htmlspecialchars($_POST['member_lookup'] ?? ''); ?>" style="flex: 1;">
-                            <button type="button" id="fetchMemberBtn" class="btn btn-secondary btn-sm"><?php echo __('fetch_member'); ?></button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <div class="flex-between" style="align-items: center; gap: 0.5rem;">
-                        <label class="form-label" for="member_data"><?php echo __('member_data'); ?></label>
-                        <button type="button" class="btn btn-secondary btn-sm" id="memberPickerCreate">Sök medlem &amp; kopiera</button>
-                    </div>
-                    <textarea id="member_data" name="member_data" class="form-textarea" rows="3" placeholder="<?php echo __('member_data'); ?>..." spellcheck="false"><?php echo htmlspecialchars($_POST['member_data'] ?? ''); ?></textarea>
-                    <p class="muted" style="margin-top: 0.35rem;">Sparas som fri text.</p>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="case_body"><?php echo __('case_body'); ?> *</label>
-                    <textarea id="case_body" name="case_body" class="form-textarea tall" required><?php echo htmlspecialchars($_POST['case_body'] ?? ''); ?></textarea>
-                </div>
+                </section>
 
                 <input type="hidden" name="case_data" id="case_data">
 
-                <div class="flex gap-2">
+                <div class="case-actions">
                     <button type="submit" class="btn btn-primary"><?php echo __('create_case'); ?></button>
                     <a href="cases.php" class="btn btn-secondary"><?php echo __('cancel'); ?></a>
                 </div>
@@ -183,18 +199,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const recipientInput = document.getElementById('recipient');
 
     const insertAtCaret = (el, text) => {
-        if (!el) return;
-        const start = el.selectionStart ?? el.value.length;
-        const end = el.selectionEnd ?? el.value.length;
-        const before = el.value.substring(0, start);
-        const after = el.value.substring(end);
-        const needsNewlineBefore = before && !before.endsWith('\n');
-        const needsNewlineAfter = after && !text.endsWith('\n');
-        const insertion = `${needsNewlineBefore ? '\n' : ''}${text}${needsNewlineAfter ? '\n' : ''}`;
-        el.value = before + insertion + after;
-        const caret = (before + insertion).length;
-        el.selectionStart = el.selectionEnd = caret;
-        el.focus();
+        if (window.insertTextIntoField) {
+            window.insertTextIntoField(el, text);
+        }
     };
 
     const handlerLabels = () => {
@@ -254,6 +261,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     form.addEventListener('submit', () => {
+        if (window.tinymce) {
+            window.tinymce.triggerSave();
+        }
+
         const payload = {
             received_at: document.getElementById('received_at').value,
             recipient: document.getElementById('recipient').value,

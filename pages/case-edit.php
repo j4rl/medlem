@@ -5,9 +5,14 @@ require_once __DIR__ . '/../includes/cases.php';
 requireLogin();
 
 $user = getCurrentUser();
-$caseId = $_GET['id'] ?? 0;
-$case = getCaseById($caseId);
+$caseId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
+if (!userCanAccessCaseId($caseId, (int)$user['id'], userHasAdminAccess($user))) {
+    http_response_code(403);
+    exit('Access denied.');
+}
+
+$case = getCaseById($caseId);
 if (!$case) {
     header('Location: cases.php');
     exit();
@@ -31,17 +36,15 @@ foreach ($allUsers as $u) {
         'phone' => $u['phone'] ?? '',
     ];
 }
-$selectedAssignees = $case['handler_ids'] ?? [];
-if (empty($selectedAssignees) && !empty($case['assigned_to'])) {
-    $selectedAssignees = [(int)$case['assigned_to']];
-}
 
 function normalizeEntries(array $caseData, array $case): array {
     $entries = [];
     $source = $caseData['entries'] ?? ($caseData['sections'] ?? []);
     if (is_array($source)) {
         foreach ($source as $idx => $entry) {
-            if (!is_array($entry)) continue;
+            if (!is_array($entry)) {
+                continue;
+            }
             $entries[] = [
                 'id' => $entry['id'] ?? 'entry-' . ($idx + 1),
                 'body' => (string)($entry['body'] ?? $entry['text'] ?? $entry['case_body'] ?? ''),
@@ -61,208 +64,224 @@ function normalizeEntries(array $caseData, array $case): array {
     }
 
     usort($entries, function ($a, $b) {
-        return (strtotime($a['changed_at'] ?? '') ?: 0) <=> (strtotime($b['changed_at'] ?? '') ?: 0);
+        return (strtotime($b['changed_at'] ?? '') ?: 0) <=> (strtotime($a['changed_at'] ?? '') ?: 0);
     });
 
     return array_values($entries);
 }
 
-function formatIso(?string $value): string {
-    $ts = $value ? strtotime($value) : false;
-    if ($ts === false) return date('Y-m-d\TH:i');
-    return date('Y-m-d\TH:i', $ts);
-}
-
-$caseData = [];
-if (!empty($case['case_data'])) {
-    $decoded = json_decode($case['case_data'], true);
-    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-        $caseData = $decoded;
+function decodeCaseData(array $case): array {
+    if (empty($case['case_data'])) {
+        return [];
     }
+    $decoded = json_decode($case['case_data'], true);
+    return json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : [];
 }
 
+$caseData = decodeCaseData($case);
 $entries = normalizeEntries($caseData, $case);
-$memberDataDisplay = $_POST['member_data'] ?? '';
-if ($memberDataDisplay === '' && isset($case['member_data'])) {
-    $memberDataDisplay = is_string($case['member_data']) ? $case['member_data'] : '';
+$memberDataDisplay = is_string($case['member_data'] ?? null) ? $case['member_data'] : '';
+$selectedAssignees = $case['handler_ids'] ?? [];
+if (empty($selectedAssignees) && !empty($case['assigned_to'])) {
+    $selectedAssignees = [(int)$case['assigned_to']];
 }
 
-$noteValue = '';
 $error = '';
-$success = isset($_GET['updated']) ? __('status_in_progress') : '';
+$success = '';
+if (isset($_GET['updated'])) {
+    $success = __('case_saved');
+} elseif (isset($_GET['note'])) {
+    $success = __('case_note_added');
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $noteValue = trim($_POST['case_note'] ?? '');
-    $memberDataRaw = $_POST['member_data'] ?? '';
-    $newStatus = normalizeStatusValue($_POST['status'] ?? $case['status'], $case['status']);
-    $newPriority = normalizePriorityValue($_POST['priority'] ?? $case['priority'], $case['priority']);
-    $newAssignees = normalizeHandlerIds($_POST['assigned_to'] ?? []);
-    $selectedAssignees = $newAssignees;
-    $newAssignee = $newAssignees[0] ?? null;
-    $case['status'] = $newStatus;
-    $case['priority'] = $newPriority;
-    $case['assigned_to'] = $newAssignee;
-    $case['handler_ids'] = $newAssignees;
+    $action = $_POST['action'] ?? 'save_meta';
 
-    // Normalize existing entries so the original body is preserved, then append the new note
-    $existingEntries = normalizeEntries($caseData, $case);
-    $newEntries = $existingEntries;
+    if ($action === 'delete') {
+        if (deleteCase($caseId)) {
+            header('Location: cases.php?deleted=1');
+            exit();
+        }
+        $error = __('error_general');
+    } elseif ($action === 'add_note') {
+        $noteValue = sanitizeRichTextHtml($_POST['case_note'] ?? '');
+        if (richTextContentIsEmpty($noteValue)) {
+            $error = __('error_required');
+        } else {
+            $newEntries = $entries;
+            $newEntries[] = [
+                'id' => 'entry-' . (count($newEntries) + 1) . '-' . substr(sha1(uniqid('', true)), 0, 6),
+                'body' => $noteValue,
+                'changed_at' => date('c'),
+                'author_name' => $user['full_name'] ?? ($user['username'] ?? ''),
+            ];
 
-    if ($noteValue !== '') {
-        $newEntries[] = [
-            'id' => 'entry-' . (count($newEntries) + 1) . '-' . substr(sha1(uniqid('', true)), 0, 6),
-            'body' => $noteValue,
-            'changed_at' => date('c'),
-            'author_name' => $user['full_name'] ?? ($user['username'] ?? ''),
-        ];
-    }
+            $newCaseData = $caseData;
+            $newCaseData['entries'] = $newEntries;
+            $newCaseData['last_edited_at'] = date('c');
+            $newCaseData = buildCaseDataPayload($newCaseData, $noteValue);
 
-    $newCaseData = $caseData;
-    $newCaseData['entries'] = $newEntries;
-    $latestBody = $noteValue !== '' ? $noteValue : ($newEntries ? end($newEntries)['body'] : ($caseData['case_body'] ?? $case['description'] ?? ''));
-    $newCaseData['last_edited_at'] = date('c');
-    $newCaseData = buildCaseDataPayload($newCaseData, $latestBody);
-
-    $memberData = ($memberDataRaw !== '') ? $memberDataRaw : ($case['member_data'] ?? '');
-
-    $description = $case['description'] ?? '';
-
-    if (updateCase($caseId, $case['title'], $description, $newStatus, $newPriority, $newAssignees, $newCaseData, $memberData)) {
-        header('Location: case-edit.php?id=' . $caseId . '&updated=1');
-        exit();
+            if (updateCase($caseId, $case['title'], $case['description'] ?? '', $case['status'], $case['priority'], $selectedAssignees, $newCaseData, $memberDataDisplay)) {
+                header('Location: case-edit.php?id=' . $caseId . '&note=1');
+                exit();
+            }
+            $error = __('error_general');
+        }
     } else {
+        $memberDataDisplay = $_POST['member_data'] ?? '';
+        $newStatus = normalizeStatusValue($_POST['status'] ?? $case['status'], $case['status']);
+        $newPriority = normalizePriorityValue($_POST['priority'] ?? $case['priority'], $case['priority']);
+        $selectedAssignees = normalizeHandlerIds($_POST['assigned_to'] ?? []);
+
+        if (updateCase($caseId, $case['title'], $case['description'] ?? '', $newStatus, $newPriority, $selectedAssignees, $caseData, $memberDataDisplay)) {
+            header('Location: case-edit.php?id=' . $caseId . '&updated=1');
+            exit();
+        }
         $error = __('error_general');
     }
 }
-
-// Refresh entries for display after potential append
-$entries = normalizeEntries($newCaseData ?? $caseData, $case);
 
 include __DIR__ . '/../includes/header.php';
 ?>
 
 <main class="main-content">
     <div class="container">
-        <div class="card mt-3 case-builder">
-            <form method="POST" action="">
-            <div class="section-header">
-                <div>
-                    <p class="eyebrow"><?php echo __('edit'); ?> <?php echo __('case'); ?></p>
-                    <h1><?php echo htmlspecialchars($case['case_number']); ?></h1>
-                    <div class="flex gap-2" style="margin-top: 0.35rem; align-items: center; flex-wrap: wrap;">
-                        <span class="badge badge-<?php echo htmlspecialchars($case['status']); ?>"><?php echo __('status_' . $case['status']); ?></span>
-                        <span class="badge badge-<?php echo htmlspecialchars($case['priority']); ?>"><?php echo __('priority_' . $case['priority']); ?></span>
-                    </div>
-                    <p class="muted"><?php echo __('case_body'); ?> + JSON-data sparas i <code>case_data</code>.</p>
-                </div>
-                <div class="hero-actions">
-                    <a href="<?php echo htmlspecialchars($backUrl); ?>" class="btn btn-secondary btn-sm"><?php echo __('back'); ?></a>
+        <div class="flex-between mb-3" style="align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
+            <div>
+                <p class="eyebrow"><?php echo __('edit'); ?> <?php echo __('case'); ?></p>
+                <h1><?php echo htmlspecialchars($case['case_number']); ?></h1>
+                <div class="flex gap-1" style="margin-top: 0.5rem; flex-wrap: wrap;">
+                    <?php echo renderCaseIndicators($case); ?>
                 </div>
             </div>
+            <a href="<?php echo htmlspecialchars($backUrl); ?>" class="btn btn-secondary btn-sm"><?php echo __('back'); ?></a>
+        </div>
 
-            <div class="card" style="margin-top: 0; margin-bottom: 1rem;">
-                <div class="meta-grid" style="grid-template-columns: repeat(3, minmax(0,1fr)); gap: 1rem;">
-                    <div><strong><?php echo __('case_number'); ?></strong><br><?php echo htmlspecialchars($case['case_number']); ?></div>
-                    <div><strong><?php echo __('title'); ?></strong><br><?php echo htmlspecialchars($case['title']); ?></div>
-                    <div><strong><?php echo __('created_at'); ?></strong><br><?php echo date('Y-m-d H:i', strtotime($case['created_at'])); ?></div>
-                    <div>
-                        <label class="form-label" for="assigned_to"><?php echo __('case_handlers'); ?></label>
-                        <select id="assigned_to" name="assigned_to[]" class="form-input" multiple size="6">
-                            <?php foreach ($allUsers as $assignee): ?>
-                                <option value="<?php echo (int)$assignee['id']; ?>" <?php echo in_array((int)$assignee['id'], $selectedAssignees, true) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($assignee['full_name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <p class="muted" style="margin-top: 0.35rem;">Håll ned Ctrl/Cmd för att markera flera.</p>
-                    </div>
-                    <div>
-                        <label class="form-label" for="status"><?php echo __('status'); ?></label>
-                        <select id="status" name="status" class="form-input">
-                            <?php foreach ($statusOptions as $code => $label): ?>
-                                <option value="<?php echo htmlspecialchars($code); ?>" <?php echo $case['status'] === $code ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($label); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <p class="muted" style="margin-top: 0.35rem;">
-                            <span class="badge badge-<?php echo htmlspecialchars($case['status']); ?>"><?php echo __('status_' . $case['status']); ?></span>
-                        </p>
-                    </div>
-                    <div>
-                        <label class="form-label" for="priority"><?php echo __('priority'); ?></label>
-                        <select id="priority" name="priority" class="form-input">
-                            <?php foreach ($priorityOptions as $code => $label): ?>
-                                <option value="<?php echo htmlspecialchars($code); ?>" <?php echo $case['priority'] === $code ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($label); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <p class="muted" style="margin-top: 0.35rem;">
-                            <span class="badge badge-<?php echo htmlspecialchars($case['priority']); ?>"><?php echo __('priority_' . $case['priority']); ?></span>
-                        </p>
-                    </div>
-                </div>
-            </div>
+        <?php if ($error): ?>
+            <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
+        <?php if ($success): ?>
+            <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
+        <?php endif; ?>
 
-            <?php if ($error): ?>
-                <div class="alert alert-error"><?php echo $error; ?></div>
-            <?php endif; ?>
-            <?php if ($success): ?>
-                <div class="alert alert-success"><?php echo $success; ?></div>
-            <?php endif; ?>
-                <div class="form-group">
-                    <div class="flex-between" style="align-items: center; gap: 0.5rem;">
-                        <label class="form-label" for="member_data"><?php echo __('member_data'); ?></label>
-                        <div class="flex gap-1">
-                            <button type="button" class="btn btn-secondary btn-sm" id="memberPickerEdit">Sök medlem &amp; kopiera</button>
-                            <button type="button" class="btn btn-secondary btn-sm" id="userPickerBtn"><?php echo __('fetch_user'); ?></button>
-                        </div>
+        <div class="case-layout">
+            <div>
+                <section class="case-section">
+                    <h2><?php echo htmlspecialchars($case['title']); ?></h2>
+                    <div class="meta-grid">
+                        <div><strong><?php echo __('case_number'); ?></strong><br><?php echo htmlspecialchars($case['case_number']); ?></div>
+                        <div><strong><?php echo __('created_by'); ?></strong><br><?php echo htmlspecialchars($case['creator_name'] ?? ''); ?></div>
+                        <div><strong><?php echo __('created_at'); ?></strong><br><?php echo date('Y-m-d H:i', strtotime($case['created_at'])); ?></div>
+                        <div><strong><?php echo __('updated_at'); ?></strong><br><?php echo date('Y-m-d H:i', strtotime($case['updated_at'] ?? $case['created_at'])); ?></div>
                     </div>
-                    <textarea id="member_data" name="member_data" class="form-textarea" rows="3" placeholder="<?php echo __('member_data'); ?>..." spellcheck="false"><?php echo htmlspecialchars($memberDataDisplay); ?></textarea>
-                    <p class="muted" style="margin-top: 0.35rem;">Sparas som fri text.</p>
-                </div>
+                </section>
 
-                <div class="card" style="margin-top: 1rem;">
-                    <div class="section-header" style="margin-bottom: 0.5rem;">
-                        <div>
-                            <h3 style="margin: 0;"><?php echo __('case_body'); ?> (<?php echo __('history'); ?>)</h3>
-                        </div>
+                <section class="case-section">
+                    <div class="section-header">
+                        <h2><?php echo __('case_history_section'); ?></h2>
+                        <span class="muted"><?php echo __('latest_activity'); ?></span>
                     </div>
-                    <div class="case-list" style="gap: 0.75rem; display: flex; flex-direction: column;">
+                    <div class="history-list">
                         <?php foreach ($entries as $entry): ?>
-                            <div class="case-row">
-                                <div style="width: 100%;">
-                                    <p class="muted" style="margin: 0; font-weight: 600;">
-                                        <?php echo date('Y-m-d H:i', strtotime($entry['changed_at'])); ?> &bull; <?php echo htmlspecialchars($entry['author_name'] ?? ''); ?>
-                                    </p>
-                                    <p class="muted" style="width: 100%; margin-top: 0.5rem; white-space: pre-wrap;"><?php echo htmlspecialchars($entry['body']); ?></p>
+                            <article class="history-entry">
+                                <div class="history-entry__meta">
+                                    <?php echo date('Y-m-d H:i', strtotime($entry['changed_at'])); ?> &bull; <?php echo htmlspecialchars($entry['author_name'] ?? ''); ?>
                                 </div>
-                            </div>
+                                <div class="history-entry__body"><?php echo renderRichTextContent($entry['body']); ?></div>
+                            </article>
                         <?php endforeach; ?>
                         <?php if (empty($entries)): ?>
                             <p class="muted"><?php echo __('no_cases'); ?></p>
                         <?php endif; ?>
                     </div>
-                </div>
+                </section>
 
-                <div class="card card-accent" style="margin-top: 1rem;">
-                    <div class="form-group">
-                        <label class="form-label" for="case_note"><?php echo __('case_body'); ?></label>
-                        <textarea id="case_note" name="case_note" class="form-textarea tall" placeholder="<?php echo __('case_body'); ?>"></textarea>
-                        <p class="muted" style="margin-top: 0.25rem;"><?php echo __('status_in_progress'); ?> <?php echo __('case_body'); ?></p>
-                    </div>
-                </div>
+                <section class="case-section">
+                    <h2><?php echo __('case_note_section'); ?></h2>
+                    <form method="POST" action="">
+                        <?php echo csrfField(); ?>
+                        <input type="hidden" name="action" value="add_note">
+                        <div class="form-group">
+                            <label class="form-label" for="case_note"><?php echo __('add_note'); ?></label>
+                            <textarea id="case_note" name="case_note" class="form-textarea tall" data-rich-text="true" placeholder="<?php echo htmlspecialchars(__('case_note_placeholder')); ?>"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><?php echo __('add_note'); ?></button>
+                    </form>
+                </section>
+            </div>
 
-                <div class="flex gap-2" style="margin-top: 1rem;">
-                    <button type="submit" class="btn btn-primary"><?php echo __('save'); ?></button>
-                    <a href="case-edit.php?id=<?php echo $caseId; ?>" class="btn btn-secondary"><?php echo __('cancel'); ?></a>
-                    <button type="submit" name="delete" class="btn btn-danger"
-                            onclick="return confirmDelete('<?php echo __('confirm_delete_case'); ?>');">
-                        <?php echo __('delete'); ?>
-                    </button>
-                </div>
-            </form>
+            <aside class="case-sidebar">
+                <section class="case-section">
+                    <h2><?php echo __('case_meta_section'); ?></h2>
+                    <form method="POST" action="">
+                        <?php echo csrfField(); ?>
+                        <input type="hidden" name="action" value="save_meta">
+
+                        <div class="form-group">
+                            <label class="form-label" for="status"><?php echo __('status'); ?></label>
+                            <select id="status" name="status" class="form-input">
+                                <?php foreach ($statusOptions as $code => $label): ?>
+                                    <option value="<?php echo htmlspecialchars($code); ?>" <?php echo $case['status'] === $code ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($label); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="priority"><?php echo __('priority'); ?></label>
+                            <select id="priority" name="priority" class="form-input">
+                                <?php foreach ($priorityOptions as $code => $label): ?>
+                                    <option value="<?php echo htmlspecialchars($code); ?>" <?php echo $case['priority'] === $code ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($label); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="assigned_to"><?php echo __('case_handlers'); ?></label>
+                            <select
+                                id="assigned_to"
+                                name="assigned_to[]"
+                                class="form-input"
+                                multiple
+                                data-enhance="multi-select"
+                                data-search-label="<?php echo htmlspecialchars(__('search_handlers')); ?>"
+                                data-empty-label="<?php echo htmlspecialchars(__('no_handler_selected')); ?>"
+                                data-clear-label="<?php echo htmlspecialchars(__('clear')); ?>">
+                                <?php foreach ($allUsers as $assignee): ?>
+                                    <option value="<?php echo (int)$assignee['id']; ?>" <?php echo in_array((int)$assignee['id'], $selectedAssignees, true) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($assignee['full_name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="flex-between" style="align-items: center; gap: 0.5rem;">
+                                <label class="form-label" for="member_data" style="margin: 0;"><?php echo __('member_data'); ?></label>
+                                <div class="flex gap-1">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="memberPickerEdit"><?php echo __('fetch_member'); ?></button>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="userPickerBtn"><?php echo __('fetch_user'); ?></button>
+                                </div>
+                            </div>
+                            <textarea id="member_data" name="member_data" class="form-textarea" rows="4" placeholder="<?php echo __('member_data'); ?>..." spellcheck="false"><?php echo htmlspecialchars($memberDataDisplay); ?></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary"><?php echo __('save_status'); ?></button>
+                    </form>
+                </section>
+
+                <section class="case-section danger-zone">
+                    <h3><?php echo __('delete'); ?></h3>
+                    <form method="POST" action="" onsubmit="return confirmDelete('<?php echo __('confirm_delete_case'); ?>');">
+                        <?php echo csrfField(); ?>
+                        <input type="hidden" name="action" value="delete">
+                        <button type="submit" class="btn btn-danger"><?php echo __('delete'); ?></button>
+                    </form>
+                </section>
+            </aside>
         </div>
     </div>
 </main>
@@ -359,28 +378,15 @@ window.addEventListener('load', () => {
 
                 const meta = document.createElement('div');
                 meta.className = 'member-hit__meta';
-                meta.innerHTML = `
-                    <strong>${user.name || ''}</strong><br>
-                    ${user.username ? `<div class="muted">${labels.username}: ${user.username}</div>` : ''}
-                    ${user.email ? `<div class="muted">${user.email}</div>` : ''}
-                    ${user.phone ? `<div class="muted">${user.phone}</div>` : ''}
-                `;
-
-                const checks = document.createElement('div');
-                checks.className = 'member-hit__checks';
-                const fields = [
-                    { key: 'name', label: labels.name, value: user.name },
-                    { key: 'username', label: labels.username, value: user.username },
-                    { key: 'email', label: labels.email, value: user.email },
-                    { key: 'phone', label: labels.phone, value: user.phone },
-                ].filter(f => f.value && f.value !== '');
-
-                fields.forEach((f) => {
-                    const id = `user-chk-${f.key}-${Math.random().toString(36).slice(2)}`;
-                    const label = document.createElement('label');
-                    label.className = 'member-hit__check';
-                    label.innerHTML = `<input type="checkbox" data-value="${f.value}" id="${id}"> ${f.label}`;
-                    checks.appendChild(label);
+                const strong = document.createElement('strong');
+                strong.textContent = user.name || '';
+                meta.appendChild(strong);
+                ['username', 'email', 'phone'].forEach((key) => {
+                    if (!user[key]) return;
+                    const line = document.createElement('div');
+                    line.className = 'muted';
+                    line.textContent = key === 'username' ? `${labels.username}: ${user[key]}` : user[key];
+                    meta.appendChild(line);
                 });
 
                 const actions = document.createElement('div');
@@ -390,10 +396,7 @@ window.addEventListener('load', () => {
                 btn.className = 'btn btn-primary btn-sm';
                 btn.textContent = 'Kopiera';
                 btn.addEventListener('click', () => {
-                    const checked = Array.from(checks.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.dataset.value || '').filter(Boolean);
-                    const text = checked.length > 0 ? checked.join('\n') : formatUserContact(user);
-                    if (!text) return;
-                    copyToClipboard(text, () => {
+                    copyToClipboard(formatUserContact(user), () => {
                         const original = btn.textContent;
                         btn.textContent = 'Kopierat';
                         btn.disabled = true;
@@ -406,9 +409,6 @@ window.addEventListener('load', () => {
                 actions.appendChild(btn);
 
                 div.appendChild(meta);
-                if (fields.length > 0) {
-                    div.appendChild(checks);
-                }
                 div.appendChild(actions);
                 resultsBox.appendChild(div);
             });
@@ -420,9 +420,7 @@ window.addEventListener('load', () => {
                 resultsBox.innerHTML = '<p class="muted" style="margin: 0;">Börja skriva för att söka.</p>';
                 return;
             }
-            const hits = userContacts.filter((u) => {
-                return [u.name, u.email, u.phone].some((val) => (val || '').toLowerCase().includes(q));
-            });
+            const hits = userContacts.filter((u) => [u.name, u.email, u.phone].some((val) => (val || '').toLowerCase().includes(q)));
             render(hits.slice(0, 50));
         });
 

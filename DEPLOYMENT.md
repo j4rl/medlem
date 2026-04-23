@@ -42,7 +42,7 @@ Use this checklist when deploying the Medlem system to production.
 - [ ] Update `DB_USER` in `config/database.php`
 - [ ] Update `DB_PASS` in `config/database.php`
 - [ ] Update `DB_NAME` in `config/database.php`
-- [ ] Test database connection (visit `/install.php`)
+- [ ] Test database connection with a temporary local/CLI check. `/install.php` is disabled unless explicitly unlocked.
 
 ### Encryption Configuration
 - [ ] Set `DATA_ENCRYPTION_KEY` (32-byte raw/hex/base64) for member data encryption
@@ -50,7 +50,7 @@ Use this checklist when deploying the Medlem system to production.
 - [ ] Verify member import works after key is set
 
 ### Security Configuration
-- [ ] Change default admin password immediately after first login
+- [ ] Create the first admin account with a unique password; no shared default admin is created
 - [ ] Review `.htaccess` security headers
 - [ ] Ensure `config/` directory is not web-accessible
 - [ ] Verify file upload restrictions work
@@ -82,11 +82,10 @@ Use this checklist when deploying the Medlem system to production.
 ## Post-Deployment
 
 ### Testing
-- [ ] Visit installation page (`/install.php`)
-- [ ] Verify all checks pass
+- [ ] Temporarily unlock and visit installation page only if needed, then lock it again
+- [ ] Verify all setup checks pass
 - [ ] Test user registration
-- [ ] Test user login with default credentials
-- [ ] Change admin password
+- [ ] Test user login with a real account
 - [ ] Test case creation
 - [ ] Test case editing
 - [ ] Test case deletion
@@ -137,7 +136,6 @@ Use this checklist when deploying the Medlem system to production.
 - [ ] Review and update dependencies (if any added)
 
 ### User Management
-- [ ] Remove default admin account if not needed
 - [ ] Audit user accounts regularly
 - [ ] Remove inactive accounts
 - [ ] Review case assignment patterns
@@ -197,7 +195,7 @@ If issues occur after deployment:
 - [ ] Documentation updated
 - [ ] Users notified of go-live
 - [ ] Support plan in place
-- [ ] Remove or secure `/install.php` after setup
+- [ ] Confirm `/install.php` is not publicly accessible
 
 ## Post-Go-Live
 
@@ -209,4 +207,4 @@ If issues occur after deployment:
 
 ---
 
-**Important**: After successful deployment, remove or move `install.php` to a secure location to prevent unauthorized access to system information.
+**Important**: Keep `install.php` locked or remove it after setup to prevent unauthorized access to system information.

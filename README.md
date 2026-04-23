@@ -55,15 +55,14 @@ Enkelt ärendehanteringssystem för lärarfackförening (Case Management System 
    chmod 755 assets/uploads/profiles
    ```
 
-5. **Öppna i webbläsaren**
+5. **Sätt krypteringsnyckel**
+   Sätt `DATA_ENCRYPTION_KEY` till en unik 32-byte-nyckel (raw, hex eller base64) innan CSV-import används.
+
+6. **Skapa första admin**
+   Skapa ett eget admin-konto med unik lösenordshash. `config/setup.sql` skapar inte längre ett delat standardkonto.
+
+7. **Öppna i webbläsaren**
    Navigera till din installation, t.ex. `http://localhost/medlem`.
-
-### Standard inloggning
-
-- **Användarnamn**: admin
-- **Lösenord**: admin123
-
-**OBS**: Ändra admin-lösenordet direkt efter första inloggningen!
 
 ## Snabbstart
 
@@ -88,7 +87,8 @@ medlem/
 - Lösenord hashas med `password_hash()` (bcrypt)
 - Prepared statements för SQL
 - `htmlspecialchars()` för utdata
-- Session-baserad autentisering
+- Session-baserad autentisering med CSRF-token för POST-flöden
+- Per-ärende-behörighet för direktlänkar och API
 - Filuppladdningskontroller (typ och storlek)
 
 ## Bidra

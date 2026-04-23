@@ -6,6 +6,8 @@ assets/uploads/profiles/*
 *.tmp
 *.temp
 *.log
+*.csv
+!config/users_slkga.csv
 
 # IDE files
 .vscode/
@@ -21,3 +23,4 @@ Thumbs.db
 # PHP
 composer.phar
 vendor/
+config/secrets.local.php

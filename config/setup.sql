@@ -146,7 +146,5 @@ CREATE TABLE IF NOT EXISTS case_comments (
     INDEX idx_case_id (case_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insert a default admin user (password: admin123)
-INSERT INTO tbl_users (username, email, password, name, phone, pic, lang, colorscheme, userlevel, role) 
-VALUES ('admin', 'admin@exempel.se', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrator', '', 'default.png', 'sv', 1, 1000, 'Admin')
-ON DUPLICATE KEY UPDATE username=username;
+-- Create the first admin account manually with a unique password hash.
+-- Do not ship a shared default admin password in production data.

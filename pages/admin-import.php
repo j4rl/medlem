@@ -110,6 +110,7 @@ include __DIR__ . '/../includes/header.php';
             <?php endif; ?>
 
             <form method="POST" action="" enctype="multipart/form-data">
+                <?php echo csrfField(); ?>
                 <div class="form-group">
                     <label class="form-label" for="csv_file"><?php echo __('import_csv_label'); ?></label>
                     <input type="file" id="csv_file" name="csv_file" class="form-input" accept=".csv" required>
@@ -155,6 +156,7 @@ include __DIR__ . '/../includes/header.php';
             <?php endif; ?>
 
             <form method="POST" action="" enctype="multipart/form-data">
+                <?php echo csrfField(); ?>
                 <div class="form-group">
                     <label class="form-label" for="user_csv_file">CSV (users)</label>
                     <input type="file" id="user_csv_file" name="user_csv_file" class="form-input" accept=".csv" required>

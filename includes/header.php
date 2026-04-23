@@ -44,6 +44,7 @@ $themeStyles = renderThemeStyles($activeTheme);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
     <title><?php echo __('app_name'); ?></title>
     <?php if (!$currentUser): ?>
         <script>
@@ -58,7 +59,10 @@ $themeStyles = renderThemeStyles($activeTheme);
             })();
         </script>
     <?php endif; ?>
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css?v=<?php echo filemtime(__DIR__ . '/../assets/css/style.css'); ?>">
+    <script>
+        window.APP_BASE_URL = <?php echo json_encode(BASE_URL); ?>;
+    </script>
     <?php echo $themeStyles; ?>
 </head>
 <body>
@@ -114,7 +118,10 @@ $themeStyles = renderThemeStyles($activeTheme);
                         <div id="userDropdown" class="dropdown">
                             <a href="<?php echo BASE_URL; ?>/pages/profile.php"><?php echo __('my_profile'); ?></a>
                             <a href="<?php echo BASE_URL; ?>/pages/settings.php"><?php echo __('settings'); ?></a>
-                            <a href="<?php echo BASE_URL; ?>/pages/logout.php"><?php echo __('logout'); ?></a>
+                            <form method="POST" action="<?php echo BASE_URL; ?>/pages/logout.php" class="dropdown-form">
+                                <?php echo csrfField(); ?>
+                                <button type="submit" class="dropdown-link"><?php echo __('logout'); ?></button>
+                            </form>
                         </div>
                     </div>
                 </nav>

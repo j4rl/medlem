@@ -1,66 +1,163 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/i18n.php';
 require_once __DIR__ . '/../includes/cases.php';
 requireLogin();
 
 $user = getCurrentUser();
 $lastLoginAt = getLastLoginAt() ?? ($user['last_login'] ?? null);
-$statusFilter = $_GET['status'] ?? null;
-$scope = $_GET['scope'] ?? 'related'; // related | created | assigned
-$cases = getAllCases($user['id'], $statusFilter, $scope);
+
+$statusOptions = getStatusOptions();
+$scopeOptions = [
+    'related' => __('my_related_cases'),
+    'created' => __('my_cases'),
+    'assigned' => __('assigned_cases'),
+];
+$sortOptions = [
+    'updated_at' => __('updated_at'),
+    'created_at' => __('created_at'),
+    'priority' => __('priority'),
+    'status' => __('status'),
+    'title' => __('title'),
+    'case_number' => __('case_number'),
+];
+
+$statusFilter = $_GET['status'] ?? '';
+$statusFilter = array_key_exists($statusFilter, $statusOptions) ? $statusFilter : '';
+$scope = $_GET['scope'] ?? 'related';
+$scope = array_key_exists($scope, $scopeOptions) ? $scope : 'related';
+$search = trim((string)($_GET['q'] ?? ''));
+$sortBy = $_GET['sort'] ?? 'updated_at';
+$sortBy = array_key_exists($sortBy, $sortOptions) ? $sortBy : 'updated_at';
+$sortDir = strtolower($_GET['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 25;
+
+$cases = getAllCases($user['id'], $statusFilter ?: null, $scope);
 $cases = annotateCaseRecency($cases, (int)$user['id'], $lastLoginAt);
-$myCases = getAllCases($user['id'], null, 'created');
-$myAssignments = getAllCases($user['id'], null, 'assigned');
+
+if ($search !== '') {
+    $needle = function_exists('mb_strtolower') ? mb_strtolower($search) : strtolower($search);
+    $cases = array_values(array_filter($cases, function ($case) use ($needle) {
+        $handlerNames = $case['handler_names'] ?? [];
+        $haystack = implode(' ', [
+            $case['case_number'] ?? '',
+            $case['title'] ?? '',
+            $case['creator_name'] ?? '',
+            implode(' ', $handlerNames),
+            $case['assignee_name'] ?? '',
+            $case['status'] ?? '',
+            $case['priority'] ?? '',
+        ]);
+        $haystack = function_exists('mb_strtolower') ? mb_strtolower($haystack) : strtolower($haystack);
+        return strpos($haystack, $needle) !== false;
+    }));
+}
+
+$priorityRank = ['urgent' => 4, 'high' => 3, 'medium' => 2, 'low' => 1];
+$statusRank = ['no_action' => 4, 'in_progress' => 3, 'resolved' => 2, 'closed' => 1];
+usort($cases, function ($a, $b) use ($sortBy, $sortDir, $priorityRank, $statusRank) {
+    if ($sortBy === 'priority') {
+        $cmp = ($priorityRank[$a['priority'] ?? ''] ?? 0) <=> ($priorityRank[$b['priority'] ?? ''] ?? 0);
+    } elseif ($sortBy === 'status') {
+        $cmp = ($statusRank[$a['status'] ?? ''] ?? 0) <=> ($statusRank[$b['status'] ?? ''] ?? 0);
+    } elseif (in_array($sortBy, ['created_at', 'updated_at'], true)) {
+        $cmp = (strtotime($a[$sortBy] ?? '') ?: 0) <=> (strtotime($b[$sortBy] ?? '') ?: 0);
+    } else {
+        $cmp = strcasecmp((string)($a[$sortBy] ?? ''), (string)($b[$sortBy] ?? ''));
+    }
+    return $sortDir === 'asc' ? $cmp : -$cmp;
+});
+
+$totalCases = count($cases);
+$totalPages = max(1, (int)ceil($totalCases / $perPage));
+$page = min($page, $totalPages);
+$offset = ($page - 1) * $perPage;
+$visibleCases = array_slice($cases, $offset, $perPage);
+$from = $totalCases > 0 ? $offset + 1 : 0;
+$to = min($offset + $perPage, $totalCases);
+
+function caseQuery(array $overrides = []): string
+{
+    $params = array_merge($_GET, $overrides);
+    foreach ($params as $key => $value) {
+        if ($value === '' || $value === null || ($key === 'page' && (int)$value <= 1)) {
+            unset($params[$key]);
+        }
+    }
+    $query = http_build_query($params);
+    return $query === '' ? 'cases.php' : 'cases.php?' . $query;
+}
+
+function caseHandlerLabel(array $case): string
+{
+    $handlerNames = $case['handler_names'] ?? [];
+    $handlerLabel = $handlerNames ? implode(', ', $handlerNames) : ($case['assignee_name'] ?? '');
+    return $handlerLabel !== '' ? $handlerLabel : '-';
+}
 
 include __DIR__ . '/../includes/header.php';
 ?>
 
 <main class="main-content">
     <div class="container">
-        <div class="flex-between mb-3">
+        <div class="flex-between mb-3" style="align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
             <div>
                 <p class="eyebrow"><?php echo __('cases'); ?></p>
-                <h1><?php echo __('all_cases'); ?></h1>
-                <p class="muted"><?php echo __('my_cases'); ?> + <?php echo __('assigned_cases'); ?>, filter by status and search.</p>
+                <h1><?php echo __('case_workbench'); ?></h1>
+                <p class="muted"><?php echo __('case_workbench_hint'); ?></p>
             </div>
-            <div class="flex gap-2">
-                <a href="case-create.php" class="btn btn-primary"><?php echo __('new_case'); ?></a>
-            </div>
+            <a href="case-create.php" class="btn btn-primary"><?php echo __('new_case'); ?></a>
         </div>
 
-        <div class="card">
-            <div class="flex-between mb-3" style="gap: 12px; flex-wrap: wrap;">
-                <div class="form-group" style="margin: 0; flex: 1; min-width: 220px;">
-                    <input type="text" id="searchInput" class="form-input" placeholder="<?php echo __('search'); ?>...">
-                </div>
+        <?php if (isset($_GET['deleted'])): ?>
+            <div class="alert alert-success"><?php echo __('case_deleted'); ?></div>
+        <?php endif; ?>
 
-                <div class="flex gap-2" style="flex-wrap: wrap;">
-                    <a href="cases.php" class="btn btn-sm <?php echo !$statusFilter ? 'btn-primary' : 'btn-secondary'; ?>">
-                        <?php echo __('all_cases'); ?>
-                    </a>
-                    <a href="cases.php?status=no_action" class="btn btn-sm <?php echo $statusFilter === 'no_action' ? 'btn-primary' : 'btn-secondary'; ?>">
-                        <?php echo __('status_no_action'); ?>
-                    </a>
-                    <a href="cases.php?status=in_progress" class="btn btn-sm <?php echo $statusFilter === 'in_progress' ? 'btn-primary' : 'btn-secondary'; ?>">
-                        <?php echo __('status_in_progress'); ?>
-                    </a>
-                    <a href="cases.php?status=resolved" class="btn btn-sm <?php echo $statusFilter === 'resolved' ? 'btn-primary' : 'btn-secondary'; ?>">
-                        <?php echo __('status_resolved'); ?>
-                    </a>
+        <div class="card case-table-card">
+            <form method="GET" action="cases.php" class="case-filter-grid">
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label" for="q"><?php echo __('search'); ?></label>
+                    <input type="search" id="q" name="q" class="form-input" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?php echo __('search'); ?>...">
                 </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label" for="scope"><?php echo __('filter'); ?></label>
+                    <select id="scope" name="scope" class="form-select">
+                        <?php foreach ($scopeOptions as $code => $label): ?>
+                            <option value="<?php echo htmlspecialchars($code); ?>" <?php echo $scope === $code ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($label); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label" for="status"><?php echo __('status'); ?></label>
+                    <select id="status" name="status" class="form-select">
+                        <option value=""><?php echo __('all_cases'); ?></option>
+                        <?php foreach ($statusOptions as $code => $label): ?>
+                            <option value="<?php echo htmlspecialchars($code); ?>" <?php echo $statusFilter === $code ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($label); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label" for="sort"><?php echo __('sort_by'); ?></label>
+                    <select id="sort" name="sort" class="form-select">
+                        <?php foreach ($sortOptions as $code => $label): ?>
+                            <option value="<?php echo htmlspecialchars($code); ?>" <?php echo $sortBy === $code ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($label); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <input type="hidden" name="dir" value="<?php echo htmlspecialchars($sortDir); ?>">
+                </div>
+                <div class="case-filter-actions">
+                    <button type="submit" class="btn btn-primary"><?php echo __('filter'); ?></button>
+                    <a href="cases.php" class="btn btn-secondary"><?php echo __('clear_filters'); ?></a>
+                </div>
+            </form>
 
-                <div class="flex gap-2" style="flex-wrap: wrap;">
-                    <a href="cases.php?scope=related" class="btn btn-sm <?php echo $scope === 'related' ? 'btn-primary' : 'btn-secondary'; ?>">
-                        <?php echo __('assigned_cases'); ?>
-                    </a>
-                    <a href="cases.php?scope=created" class="btn btn-sm <?php echo $scope === 'created' ? 'btn-primary' : 'btn-secondary'; ?>">
-                        <?php echo __('my_cases'); ?>
-                    </a>
-                    <a href="cases.php?scope=assigned" class="btn btn-sm <?php echo $scope === 'assigned' ? 'btn-primary' : 'btn-secondary'; ?>">
-                        <?php echo __('assigned_to'); ?>
-                    </a>
-                </div>
-            </div>
             <?php if ($lastLoginAt): ?>
                 <div class="case-legend">
                     <div class="case-legend__flags">
@@ -71,129 +168,88 @@ include __DIR__ . '/../includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <?php if (count($cases) > 0): ?>
-            <table class="table" id="casesTable">
-                <thead>
-                    <tr>
-                        <th><?php echo __('case_number'); ?></th>
-                        <th><?php echo __('title'); ?></th>
-                        <th><?php echo __('created_by'); ?></th>
-                        <th><?php echo __('assigned_to'); ?></th>
-                        <th><?php echo __('status'); ?></th>
-                        <th><?php echo __('priority'); ?></th>
-                        <th><?php echo __('created_at'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($cases as $case): ?>
-                    <?php
-                        $rowClasses = [];
-                        if (!empty($case['is_new_assignment'])) {
-                            $rowClasses[] = 'case-row-new';
-                        }
-                        if (!empty($case['is_recent_update'])) {
-                            $rowClasses[] = 'case-row-updated';
-                        }
-                        $rowClassAttr = $rowClasses ? ' class="' . implode(' ', $rowClasses) . '"' : '';
-                    ?>
-                    <tr<?php echo $rowClassAttr; ?> onclick="window.location.href='case-edit.php?id=<?php echo $case['id']; ?>'" style="cursor: pointer;">
-                        <td>
-                            <div class="case-id-cell">
-                                <div><?php echo htmlspecialchars($case['case_number']); ?></div>
-                                <?php if (!empty($case['is_new_assignment']) || !empty($case['is_recent_update'])): ?>
-                                    <div class="case-flags">
-                                        <?php if (!empty($case['is_new_assignment'])): ?>
-                                            <span class="case-flag case-flag--new"><?php echo __('flag_new_assignment'); ?></span>
-                                        <?php endif; ?>
-                                        <?php if (!empty($case['is_recent_update'])): ?>
-                                            <span class="case-flag case-flag--updated"><?php echo __('flag_recent_update'); ?></span>
-                                        <?php endif; ?>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        </td>
-                        <td><?php echo htmlspecialchars($case['title']); ?></td>
-                        <td><?php echo htmlspecialchars($case['creator_name']); ?></td>
-                        <td>
-                            <?php
-                            $handlerNames = $case['handler_names'] ?? [];
-                            $handlerLabel = $handlerNames ? implode(', ', $handlerNames) : ($case['assignee_name'] ?? '');
-                            echo $handlerLabel !== '' ? htmlspecialchars($handlerLabel) : '-';
-                            ?>
-                        </td>
-                        <td>
-                            <span class="badge badge-<?php echo $case['status']; ?>">
-                                <?php echo __('status_' . $case['status']); ?>
-                            </span>
-                        </td>
-                        <td>
-                            <span class="badge badge-<?php echo $case['priority']; ?>">
-                                <?php echo __('priority_' . $case['priority']); ?>
-                            </span>
-                        </td>
-                        <td><?php echo date('Y-m-d H:i', strtotime($case['created_at'])); ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-            <?php else: ?>
-            <p class="text-center"><?php echo __('no_cases'); ?></p>
-            <?php endif; ?>
-        </div>
+            <?php if ($totalCases > 0): ?>
+                <p class="muted" style="margin: 1rem 0 0.5rem;">
+                    <?php echo sprintf(__('showing_results'), $from, $to, $totalCases); ?>
+                </p>
 
-        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 16px;">
-            <div class="card">
-                <h3><?php echo __('my_cases'); ?></h3>
-                <ul class="list-unstyled">
-                    <?php if (count($myCases) === 0): ?>
-                        <li class="muted"><?php echo __('no_cases'); ?></li>
-                    <?php endif; ?>
-                    <?php foreach ($myCases as $case): ?>
-                        <li class="flex-between" style="padding: 6px 0; border-bottom: 1px solid #eee;">
-                            <div>
-                                <div><?php echo htmlspecialchars($case['title']); ?></div>
-                                <small class="muted"><?php echo htmlspecialchars($case['case_number']); ?></small>
-                                <div class="flex gap-1" style="margin-top: 4px; flex-wrap: wrap;">
-                                    <span class="badge badge-<?php echo $case['status']; ?>"><?php echo __('status_' . $case['status']); ?></span>
-                                    <span class="badge badge-<?php echo $case['priority']; ?>"><?php echo __('priority_' . $case['priority']); ?></span>
-                                </div>
-                            </div>
-                            <a class="btn btn-link btn-sm" href="case-edit.php?id=<?php echo $case['id']; ?>"><?php echo __('details'); ?></a>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-            <div class="card">
-                <h3><?php echo __('assigned_cases'); ?></h3>
-                <ul class="list-unstyled">
-                    <?php if (count($myAssignments) === 0): ?>
-                        <li class="muted"><?php echo __('no_cases'); ?></li>
-                    <?php endif; ?>
-                    <?php foreach ($myAssignments as $case): ?>
-                        <li class="flex-between" style="padding: 6px 0; border-bottom: 1px solid #eee;">
-                            <div>
-                                <div><?php echo htmlspecialchars($case['title']); ?></div>
+                <div class="table-responsive case-table-desktop">
+                    <table class="table" id="casesTable">
+                        <thead>
+                            <tr>
+                                <?php foreach (['case_number', 'title', 'created_by', 'assigned_to', 'status', 'priority', 'updated_at'] as $column): ?>
+                                    <th>
+                                        <?php if (array_key_exists($column, $sortOptions)): ?>
+                                            <?php $nextDir = ($sortBy === $column && $sortDir === 'asc') ? 'desc' : 'asc'; ?>
+                                            <a href="<?php echo caseQuery(['sort' => $column, 'dir' => $nextDir, 'page' => 1]); ?>">
+                                                <?php echo htmlspecialchars($sortOptions[$column]); ?>
+                                                <?php if ($sortBy === $column): ?><?php echo $sortDir === 'asc' ? '↑' : '↓'; ?><?php endif; ?>
+                                            </a>
+                                        <?php else: ?>
+                                            <?php echo __($column); ?>
+                                        <?php endif; ?>
+                                    </th>
+                                <?php endforeach; ?>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($visibleCases as $case): ?>
                                 <?php
-                                $handlerNames = $case['handler_names'] ?? [];
-                                $handlerLabel = $handlerNames ? implode(', ', $handlerNames) : ($case['assignee_name'] ?? '');
+                                $rowClasses = [];
+                                if (!empty($case['is_new_assignment'])) $rowClasses[] = 'case-row-new';
+                                if (!empty($case['is_recent_update'])) $rowClasses[] = 'case-row-updated';
+                                $rowClassAttr = $rowClasses ? ' class="' . implode(' ', $rowClasses) . '"' : '';
                                 ?>
-                                <small class="muted"><?php echo $handlerLabel !== '' ? htmlspecialchars($handlerLabel) : '-'; ?></small>
-                                <div class="flex gap-1" style="margin-top: 4px; flex-wrap: wrap;">
-                                    <span class="badge badge-<?php echo $case['status']; ?>"><?php echo __('status_' . $case['status']); ?></span>
-                                    <span class="badge badge-<?php echo $case['priority']; ?>"><?php echo __('priority_' . $case['priority']); ?></span>
-                                </div>
+                                <tr<?php echo $rowClassAttr; ?> onclick="window.location.href='case-edit.php?id=<?php echo (int)$case['id']; ?>'" style="cursor: pointer;">
+                                    <td>
+                                        <div class="case-id-cell">
+                                            <div><?php echo htmlspecialchars($case['case_number']); ?></div>
+                                            <?php if (!empty($case['is_new_assignment']) || !empty($case['is_recent_update'])): ?>
+                                                <div class="case-flags">
+                                                    <?php if (!empty($case['is_new_assignment'])): ?><span class="case-flag case-flag--new"><?php echo __('flag_new_assignment'); ?></span><?php endif; ?>
+                                                    <?php if (!empty($case['is_recent_update'])): ?><span class="case-flag case-flag--updated"><?php echo __('flag_recent_update'); ?></span><?php endif; ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($case['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($case['creator_name']); ?></td>
+                                    <td><?php echo htmlspecialchars(caseHandlerLabel($case)); ?></td>
+                                    <td><?php echo renderCaseIndicator('status', $case['status']); ?></td>
+                                    <td><?php echo renderCaseIndicator('priority', $case['priority']); ?></td>
+                                    <td><?php echo date('Y-m-d H:i', strtotime($case['updated_at'] ?? $case['created_at'])); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="case-mobile-list">
+                    <?php foreach ($visibleCases as $case): ?>
+                        <a class="case-row" href="case-edit.php?id=<?php echo (int)$case['id']; ?>">
+                            <div>
+                                <p class="case-title"><?php echo htmlspecialchars($case['title']); ?></p>
+                                <p class="muted"><?php echo htmlspecialchars($case['case_number']); ?> &bull; <?php echo htmlspecialchars(caseHandlerLabel($case)); ?></p>
                             </div>
-                            <a class="btn btn-link btn-sm" href="case-edit.php?id=<?php echo $case['id']; ?>"><?php echo __('details'); ?></a>
-                        </li>
+                            <div class="row-right" style="flex-wrap: wrap; justify-content: flex-end;">
+                                <?php echo renderCaseIndicators($case); ?>
+                            </div>
+                        </a>
                     <?php endforeach; ?>
-                </ul>
-            </div>
+                </div>
+
+                <div class="pagination">
+                    <span class="muted"><?php echo __('page'); ?> <?php echo $page; ?> / <?php echo $totalPages; ?></span>
+                    <div class="pagination__actions">
+                        <a class="btn btn-secondary btn-sm" href="<?php echo caseQuery(['page' => max(1, $page - 1)]); ?>" <?php echo $page <= 1 ? 'aria-disabled="true"' : ''; ?>><?php echo __('previous'); ?></a>
+                        <a class="btn btn-secondary btn-sm" href="<?php echo caseQuery(['page' => min($totalPages, $page + 1)]); ?>" <?php echo $page >= $totalPages ? 'aria-disabled="true"' : ''; ?>><?php echo __('next'); ?></a>
+                    </div>
+                </div>
+            <?php else: ?>
+                <p class="text-center muted" style="margin: 1.5rem 0;"><?php echo __('no_matching_cases'); ?></p>
+            <?php endif; ?>
         </div>
     </div>
 </main>
-
-<script>
-    filterTable('searchInput', 'casesTable');
-</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

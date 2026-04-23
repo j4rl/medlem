@@ -96,6 +96,7 @@ include __DIR__ . '/../includes/header.php';
             <?php endif; ?>
             
             <form method="POST" action="">
+                <?php echo csrfField(); ?>
                 <input type="hidden" name="action" value="update_settings">
                 <div class="form-group">
                     <label class="form-label"><?php echo __('choose_theme'); ?></label>
@@ -180,6 +181,7 @@ include __DIR__ . '/../includes/header.php';
 
             <?php if (!$twofaEnabled): ?>
                 <form method="POST" action="" class="mb-2">
+                    <?php echo csrfField(); ?>
                     <input type="hidden" name="action" value="generate_2fa">
                     <button type="submit" class="btn btn-secondary"><?php echo $twofaSecret ? __('twofa_regenerate') : __('twofa_generate'); ?></button>
                 </form>
@@ -193,6 +195,7 @@ include __DIR__ . '/../includes/header.php';
                         <?php endif; ?>
                     </div>
                     <form method="POST" action="" class="mt-2">
+                        <?php echo csrfField(); ?>
                         <input type="hidden" name="action" value="enable_2fa">
                         <div class="form-group">
                             <label class="form-label"><?php echo __('twofa_code_label'); ?></label>
@@ -203,6 +206,7 @@ include __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
             <?php else: ?>
                 <form method="POST" action="">
+                    <?php echo csrfField(); ?>
                     <input type="hidden" name="action" value="disable_2fa">
                     <div class="form-group">
                         <label class="form-label"><?php echo __('twofa_code_label'); ?></label>

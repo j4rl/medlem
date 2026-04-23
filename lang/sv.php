@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // Swedish translations
 return [
     // General
@@ -33,6 +33,10 @@ return [
     'within_3_months' => '50 inom 3 mån',
     'within_6_months' => '50 inom 6 mån',
     'clear_filters' => 'Rensa filter',
+    'clear' => 'Rensa',
+    'previous' => 'Föregående',
+    'next' => 'Nästa',
+    'page' => 'Sida',
     'turns_50_on' => 'Fyller 50 den',
     'no_members_found' => 'Inga medlemmar hittades',
     
@@ -112,6 +116,35 @@ return [
     'flag_recent_update' => 'Uppdaterad',
     'since_last_login' => 'Sedan senaste inloggning: %s',
     'case_alerts_tooltip' => 'Nya tilldelningar: %d · Uppdaterade ärenden: %d',
+    'case_workbench' => 'Ärendebord',
+    'case_workbench_hint' => 'Sök, filtrera och prioritera ärenden du kan arbeta med.',
+    'case_create_heading' => 'Nytt ärende',
+    'case_create_hint' => 'Börja med medlemmen, fyll sedan ärendet och välj ansvariga.',
+    'case_member_section' => 'Medlem',
+    'case_details_section' => 'Ärendeuppgifter',
+    'case_assignment_section' => 'Ansvar och prioritet',
+    'case_note_section' => 'Ny anteckning',
+    'case_history_section' => 'Historik',
+    'case_meta_section' => 'Status och ansvar',
+    'case_saved' => 'Ärendet har sparats.',
+    'case_deleted' => 'Ärendet har tagits bort.',
+    'case_note_added' => 'Anteckningen har sparats.',
+    'save_status' => 'Spara status',
+    'add_note' => 'Lägg till anteckning',
+    'latest_activity' => 'Senaste aktivitet',
+    'high_priority_cases' => 'Hög prioritet',
+    'new_assignments' => 'Nya tilldelningar',
+    'recent_updates' => 'Nyligen uppdaterade',
+    'open_assigned_cases' => 'Öppna tilldelade ärenden',
+    'view_all' => 'Visa alla',
+    'showing_results' => 'Visar %d-%d av %d',
+    'no_matching_cases' => 'Inga ärenden matchar filtren',
+    'select_handlers' => 'Välj handläggare',
+    'search_handlers' => 'Sök handläggare',
+    'selected_handlers' => 'Valda handläggare',
+    'no_handler_selected' => 'Ingen handläggare vald',
+    'member_context_hint' => 'Sök på medlemsnummer eller använd medlemssökningen för att kopiera relevanta uppgifter.',
+    'case_note_placeholder' => 'Skriv nästa anteckning eller åtgärd...',
     
     // Status
     'status_no_action' => 'Ingen åtgärd',
@@ -146,6 +179,7 @@ return [
     
     // Dashboard
     'dashboard' => 'Instrumentpanel',
+    'dashboard_focus_hint' => 'Senaste aktivitet och ärenden som behöver uppmärksamhet.',
     'statistics' => 'Statistik',
     'total_cases' => 'Totalt antal ärenden',
     'open_cases' => 'Öppna ärenden',

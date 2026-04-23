@@ -2,10 +2,10 @@
 // Database configuration example
 // Copy this file to database.php and update with your credentials
 
-define('DB_HOST', 'localhost');
-define('DB_USER', 'your_username');
-define('DB_PASS', 'your_password');
-define('DB_NAME', 'medlem_db');
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_USER', getenv('DB_USER') ?: 'your_username');
+define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : 'your_password');
+define('DB_NAME', getenv('DB_NAME') ?: 'medlem_db');
 
 // Create connection
 function getDBConnection() {

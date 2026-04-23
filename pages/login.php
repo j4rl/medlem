@@ -60,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
             
             <form method="POST" action="">
+                <?php echo csrfField(); ?>
                 <div class="form-group">
                     <label class="form-label" for="username"><?php echo __('username'); ?></label>
                     <input type="text" id="username" name="username" class="form-input" required 

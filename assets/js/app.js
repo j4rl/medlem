@@ -172,6 +172,121 @@ function filterTable(inputId, tableId) {
     });
 }
 
+// Searchable multi-select with chips. Keeps the original select in sync for normal form posts.
+function enhanceMultiSelect(select, options = {}) {
+    if (!select || select.dataset.enhancedMultiSelect === '1') return;
+    select.dataset.enhancedMultiSelect = '1';
+    select.classList.add('visually-hidden-select');
+
+    const labels = {
+        search: options.searchLabel || 'Sök',
+        selected: options.selectedLabel || 'Valda',
+        empty: options.emptyLabel || 'Ingen vald',
+        clear: options.clearLabel || 'Rensa',
+    };
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'multi-picker';
+    select.parentNode.insertBefore(wrapper, select);
+    wrapper.appendChild(select);
+
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.className = 'form-input multi-picker__search';
+    search.placeholder = labels.search;
+    wrapper.insertBefore(search, select);
+
+    const chips = document.createElement('div');
+    chips.className = 'multi-picker__chips';
+    wrapper.appendChild(chips);
+
+    const list = document.createElement('div');
+    list.className = 'multi-picker__list';
+    wrapper.appendChild(list);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'btn btn-secondary btn-sm multi-picker__clear';
+    clearBtn.textContent = labels.clear;
+    wrapper.appendChild(clearBtn);
+
+    const getOptions = () => Array.from(select.options);
+
+    function render() {
+        const q = search.value.trim().toLowerCase();
+        const selected = getOptions().filter(option => option.selected);
+        chips.innerHTML = '';
+
+        if (selected.length === 0) {
+            const empty = document.createElement('span');
+            empty.className = 'multi-picker__empty';
+            empty.textContent = labels.empty;
+            chips.appendChild(empty);
+        } else {
+            selected.forEach(option => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'multi-picker__chip';
+                chip.textContent = `${option.text} ×`;
+                chip.addEventListener('click', () => {
+                    option.selected = false;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                    render();
+                });
+                chips.appendChild(chip);
+            });
+        }
+
+        list.innerHTML = '';
+        getOptions()
+            .filter(option => !q || option.text.toLowerCase().includes(q))
+            .slice(0, 80)
+            .forEach(option => {
+                const row = document.createElement('label');
+                row.className = 'multi-picker__option';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = option.selected;
+                checkbox.addEventListener('change', () => {
+                    option.selected = checkbox.checked;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                    render();
+                    search.focus();
+                });
+
+                const text = document.createElement('span');
+                text.textContent = option.text;
+
+                row.appendChild(checkbox);
+                row.appendChild(text);
+                list.appendChild(row);
+            });
+    }
+
+    search.addEventListener('input', render);
+    clearBtn.addEventListener('click', () => {
+        getOptions().forEach(option => {
+            option.selected = false;
+        });
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        render();
+    });
+    select.addEventListener('change', render);
+    render();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-enhance="multi-select"]').forEach(select => {
+        enhanceMultiSelect(select, {
+            searchLabel: select.dataset.searchLabel,
+            selectedLabel: select.dataset.selectedLabel,
+            emptyLabel: select.dataset.emptyLabel,
+            clearLabel: select.dataset.clearLabel,
+        });
+    });
+});
+
 // Member picker popover (search + copy to clipboard)
 (function() {
     if (window.initMemberPicker) return;
@@ -206,12 +321,23 @@ function filterTable(inputId, tableId) {
 
         const meta = document.createElement('div');
         meta.className = 'member-hit__meta';
-        meta.innerHTML = `
-            <strong>${member.namn || ''}</strong><br>
-            <span class="muted">${member.medlnr || ''}</span>
-            ${member.forening ? `<div class="muted">${member.forening}</div>` : ''}
-            ${member.befattning ? `<div class="muted">${member.befattning}</div>` : ''}
-        `;
+
+        const name = document.createElement('strong');
+        name.textContent = member.namn || '';
+        meta.appendChild(name);
+
+        const number = document.createElement('span');
+        number.className = 'muted';
+        number.textContent = member.medlnr || '';
+        meta.appendChild(number);
+
+        ['forening', 'befattning'].forEach(key => {
+            if (!member[key]) return;
+            const line = document.createElement('div');
+            line.className = 'muted';
+            line.textContent = member[key];
+            meta.appendChild(line);
+        });
 
         const pickableFields = [
             { key: 'namn', label: 'Namn', value: member.namn || '' },
@@ -230,7 +356,14 @@ function filterTable(inputId, tableId) {
             const id = `chk-${f.key}-${Math.random().toString(36).slice(2)}`;
             const label = document.createElement('label');
             label.className = 'member-hit__check';
-            label.innerHTML = `<input type="checkbox" data-value="${f.value}" id="${id}"> ${f.label}`;
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.dataset.value = f.value;
+            input.id = id;
+            const text = document.createElement('span');
+            text.textContent = f.label;
+            label.appendChild(input);
+            label.appendChild(text);
             checks.appendChild(label);
         });
 
@@ -333,7 +466,12 @@ function filterTable(inputId, tableId) {
                 .then(res => res.json())
                 .then(data => {
                     if (!data.success) {
-                        resultsBox.innerHTML = `<p class="muted" style="margin: 0;">${data.error || 'Kunde inte hämta medlemmar.'}</p>`;
+                        resultsBox.innerHTML = '';
+                        const message = document.createElement('p');
+                        message.className = 'muted';
+                        message.style.margin = '0';
+                        message.textContent = data.error || 'Kunde inte hämta medlemmar.';
+                        resultsBox.appendChild(message);
                         return;
                     }
                     renderResults(resultsBox, data.results, () => searchInput.focus());
