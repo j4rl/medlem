@@ -176,6 +176,7 @@ return [
     'error_password_mismatch' => 'Passwords do not match',
     'error_username_taken' => 'Username is already taken',
     'error_email_taken' => 'Email is already in use',
+    'error_rate_limited' => 'Too many attempts. Please wait before trying again.',
     
     // Dashboard
     'dashboard' => 'Dashboard',

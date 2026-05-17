@@ -1,13 +1,21 @@
 # Uploaded files
 assets/uploads/profiles/*
 !assets/uploads/profiles/.gitkeep
+!assets/uploads/profiles/.htaccess
+
+# Sensitive local/import data
+20251127.csv
+20260115.csv
+config/users_slkga.csv
+assets/medlem_db.sql
+config/database.php
+config/secrets.local.php
 
 # Temporary files
 *.tmp
 *.temp
 *.log
 *.csv
-!config/users_slkga.csv
 
 # IDE files
 .vscode/
@@ -23,4 +31,3 @@ Thumbs.db
 # PHP
 composer.phar
 vendor/
-config/secrets.local.php

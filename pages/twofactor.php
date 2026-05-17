@@ -18,7 +18,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: dashboard.php');
         exit();
     } else {
-        $error = __('twofa_invalid_code');
+        $errorKey = $_SESSION['auth_error'] ?? 'twofa_invalid_code';
+        unset($_SESSION['auth_error']);
+        $error = __($errorKey);
     }
 }
 ?>

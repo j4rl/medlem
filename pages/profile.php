@@ -9,6 +9,62 @@ $user = getCurrentUser();
 $error = '';
 $success = '';
 
+function profileUploadDirectory(): string {
+    return realpath(__DIR__ . '/../assets/uploads/profiles') ?: (__DIR__ . '/../assets/uploads/profiles');
+}
+
+function profileUploadExtensionForMime(string $mime): ?string {
+    $allowed = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+    ];
+
+    return $allowed[$mime] ?? null;
+}
+
+function detectProfileImageMime(string $path): ?string {
+    $mime = null;
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $detected = finfo_file($finfo, $path);
+            finfo_close($finfo);
+            if (is_string($detected)) {
+                $mime = $detected;
+            }
+        }
+    }
+
+    if (!$mime && function_exists('mime_content_type')) {
+        $detected = mime_content_type($path);
+        if (is_string($detected)) {
+            $mime = $detected;
+        }
+    }
+
+    return $mime;
+}
+
+function profileUploadIsValidImage(string $path, ?string &$extension): bool {
+    if (!is_uploaded_file($path)) {
+        return false;
+    }
+
+    $imageInfo = @getimagesize($path);
+    if ($imageInfo === false || empty($imageInfo['mime'])) {
+        return false;
+    }
+
+    $mime = detectProfileImageMime($path) ?: $imageInfo['mime'];
+    if ($mime !== $imageInfo['mime']) {
+        return false;
+    }
+
+    $extension = profileUploadExtensionForMime($mime);
+    return $extension !== null;
+}
+
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $fullName = $_POST['full_name'] ?? '';
@@ -31,28 +87,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
 
 // Handle profile picture upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_picture'])) {
-    if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === 0) {
-        $allowed = ['jpg', 'jpeg', 'png', 'gif'];
-        $filename = $_FILES['profile_picture']['name'];
-        $filetype = $_FILES['profile_picture']['type'];
+    if (!isset($_FILES['profile_picture']) || $_FILES['profile_picture']['error'] !== UPLOAD_ERR_OK) {
+        $error = __('error_upload_failed');
+    } else {
         $filesize = $_FILES['profile_picture']['size'];
-        
-        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        
-        if (!in_array($ext, $allowed)) {
-            $error = __('error_invalid_file_type');
-        } elseif ($filesize > 5 * 1024 * 1024) {
+
+        if ($filesize > 5 * 1024 * 1024) {
             $error = __('error_file_too_large');
+        } elseif (!profileUploadIsValidImage($_FILES['profile_picture']['tmp_name'], $ext)) {
+            $error = __('error_invalid_file_type');
         } else {
-            $newFilename = 'profile_' . $user['id'] . '_' . time() . '.' . $ext;
-            $uploadPath = __DIR__ . '/../assets/uploads/profiles/' . $newFilename;
-            
+            $newFilename = 'profile_' . (int)$user['id'] . '_' . bin2hex(random_bytes(16)) . '.' . $ext;
+            $uploadDir = profileUploadDirectory();
+            $uploadPath = $uploadDir . DIRECTORY_SEPARATOR . $newFilename;
+
             if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $uploadPath)) {
                 // Delete old profile picture if not default
                 if ($user['profile_picture'] !== 'default.png') {
-                    $oldPath = __DIR__ . '/../assets/uploads/profiles/' . $user['profile_picture'];
-                    if (file_exists($oldPath)) {
-                        unlink($oldPath);
+                    $oldFilename = basename((string)$user['profile_picture']);
+                    $oldPath = $uploadDir . DIRECTORY_SEPARATOR . $oldFilename;
+                    $oldRealPath = realpath($oldPath);
+                    $uploadRealPath = realpath($uploadDir);
+                    if ($oldRealPath && $uploadRealPath && strpos($oldRealPath, $uploadRealPath . DIRECTORY_SEPARATOR) === 0 && file_exists($oldRealPath)) {
+                        unlink($oldRealPath);
                     }
                 }
                 

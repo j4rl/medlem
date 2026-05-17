@@ -58,6 +58,102 @@ function userHasAdminAccess(?array $user): bool {
     return $level >= 1000;
 }
 
+function authRateLimitIp(): string {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    return is_string($ip) && $ip !== '' ? $ip : 'unknown';
+}
+
+function authRateLimitKey(string $scope, string $identifier): string {
+    return $scope . ':' . hash('sha256', $identifier);
+}
+
+function authRateLimitStoragePath(string $key): ?string {
+    $dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'medlem_rate_limits';
+    if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
+        return null;
+    }
+
+    return $dir . DIRECTORY_SEPARATOR . hash('sha256', $key) . '.json';
+}
+
+function authRateLimitLoad(string $key): array {
+    $path = authRateLimitStoragePath($key);
+    if ($path && is_file($path)) {
+        $data = json_decode((string)file_get_contents($path), true);
+        if (is_array($data)) {
+            return $data;
+        }
+    }
+
+    return $_SESSION['auth_rate_limits'][$key] ?? ['failures' => [], 'blocked_until' => 0];
+}
+
+function authRateLimitSave(string $key, array $record): void {
+    $path = authRateLimitStoragePath($key);
+    if ($path) {
+        file_put_contents($path, json_encode($record), LOCK_EX);
+        return;
+    }
+
+    $_SESSION['auth_rate_limits'][$key] = $record;
+}
+
+function authRateLimitClear(string $key): void {
+    $path = authRateLimitStoragePath($key);
+    if ($path && is_file($path)) {
+        @unlink($path);
+    }
+    unset($_SESSION['auth_rate_limits'][$key]);
+}
+
+function authRateLimitCheck(string $key, int $windowSeconds): array {
+    $now = time();
+    $record = authRateLimitLoad($key);
+    $failures = array_values(array_filter($record['failures'] ?? [], function ($timestamp) use ($now, $windowSeconds) {
+        return is_int($timestamp) && $timestamp >= ($now - $windowSeconds);
+    }));
+
+    $record['failures'] = $failures;
+    $record['blocked_until'] = (int)($record['blocked_until'] ?? 0);
+    authRateLimitSave($key, $record);
+
+    if ($record['blocked_until'] > $now) {
+        return ['limited' => true, 'retry_after' => $record['blocked_until'] - $now];
+    }
+
+    return ['limited' => false, 'retry_after' => 0];
+}
+
+function authRateLimitRegisterFailure(string $key, int $maxAttempts, int $windowSeconds, int $lockSeconds): void {
+    $now = time();
+    $record = authRateLimitLoad($key);
+    $failures = array_values(array_filter($record['failures'] ?? [], function ($timestamp) use ($now, $windowSeconds) {
+        return is_int($timestamp) && $timestamp >= ($now - $windowSeconds);
+    }));
+    $failures[] = $now;
+
+    $record['failures'] = $failures;
+    $record['blocked_until'] = count($failures) >= $maxAttempts ? $now + $lockSeconds : 0;
+    authRateLimitSave($key, $record);
+}
+
+function authRateLimitIsBlocked(array $keys, int $windowSeconds): bool {
+    foreach ($keys as $key) {
+        $status = authRateLimitCheck($key, $windowSeconds);
+        if (!empty($status['limited'])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function authRateLimitRegisterFailures(array $rules): void {
+    foreach ($rules as $rule) {
+        authRateLimitRegisterFailure($rule['key'], $rule['max'], $rule['window'], $rule['lock']);
+    }
+}
+
 function stampLastLogin(int $userId): void {
     $conn = getDBConnection();
     $stmt = $conn->prepare("UPDATE tbl_users SET last_login = NOW() WHERE id = ?");
@@ -71,6 +167,15 @@ function stampLastLogin(int $userId): void {
 
 // Login user (returns ['success'=>bool, 'requires_2fa'=>bool])
 function loginUser($username, $password) {
+    $normalizedUsername = strtolower(trim((string)$username));
+    $ip = authRateLimitIp();
+    $userRateKey = authRateLimitKey('login-user', $normalizedUsername . '|' . $ip);
+    $ipRateKey = authRateLimitKey('login-ip', $ip);
+
+    if (authRateLimitIsBlocked([$userRateKey], 15 * 60) || authRateLimitIsBlocked([$ipRateKey], 15 * 60)) {
+        return ['success' => false, 'requires_2fa' => false, 'error' => 'error_rate_limited'];
+    }
+
     $conn = getDBConnection();
     
     $stmt = $conn->prepare("SELECT id, username, password, twofa_enabled, twofa_secret, last_login FROM tbl_users WHERE username = ?");
@@ -83,6 +188,7 @@ function loginUser($username, $password) {
         $previousLogin = $user['last_login'] ?? null;
         
         if (password_verify($password, $user['password'])) {
+            authRateLimitClear($userRateKey);
             session_regenerate_id(true);
             $requires2fa = !empty($user['twofa_enabled']) && !empty($user['twofa_secret']);
             if ($requires2fa) {
@@ -104,7 +210,11 @@ function loginUser($username, $password) {
     
     $stmt->close();
     closeDBConnection($conn);
-    return ['success' => false, 'requires_2fa' => false];
+    authRateLimitRegisterFailures([
+        ['key' => $userRateKey, 'max' => 5, 'window' => 15 * 60, 'lock' => 15 * 60],
+        ['key' => $ipRateKey, 'max' => 20, 'window' => 15 * 60, 'lock' => 15 * 60],
+    ]);
+    return ['success' => false, 'requires_2fa' => false, 'error' => 'error_login'];
 }
 
 // Register user
@@ -178,6 +288,12 @@ function completeTwoFactorLogin(string $code): bool
     }
 
     $userId = (int)$_SESSION['pending_2fa_user'];
+    $rateKey = authRateLimitKey('twofactor', $userId . '|' . authRateLimitIp());
+    if (authRateLimitIsBlocked([$rateKey], 10 * 60)) {
+        $_SESSION['auth_error'] = 'error_rate_limited';
+        return false;
+    }
+
     $conn = getDBConnection();
     $stmt = $conn->prepare("SELECT id, username, twofa_secret, last_login FROM tbl_users WHERE id = ?");
     $stmt->bind_param("i", $userId);
@@ -192,9 +308,12 @@ function completeTwoFactorLogin(string $code): bool
     }
 
     if (!verifyTotpCode($user['twofa_secret'], $code)) {
+        authRateLimitRegisterFailure($rateKey, 5, 10 * 60, 10 * 60);
+        $_SESSION['auth_error'] = 'twofa_invalid_code';
         return false;
     }
 
+    authRateLimitClear($rateKey);
     session_regenerate_id(true);
     $previousLogin = $_SESSION['pending_last_login_at'] ?? ($user['last_login'] ?? null);
     $_SESSION['user_id'] = $user['id'];

@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: twofactor.php');
             exit();
         } else {
-            $error = __('error_login');
+            $error = __($result['error'] ?? 'error_login');
         }
     }
 }

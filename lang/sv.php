@@ -176,6 +176,7 @@ return [
     'error_password_mismatch' => 'Lösenorden matchar inte',
     'error_username_taken' => 'Användarnamnet är upptaget',
     'error_email_taken' => 'E-postadressen används redan',
+    'error_rate_limited' => 'För många försök. Vänta en stund och försök igen.',
     
     // Dashboard
     'dashboard' => 'Instrumentpanel',
