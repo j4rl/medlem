@@ -115,6 +115,44 @@ include __DIR__ . '/../includes/header.php';
         <?php endif; ?>
 
         <div class="card case-table-card">
+            <?php
+            $workflowViews = [
+                [
+                    'label' => __('workflow_my_active'),
+                    'params' => ['scope' => 'related', 'status' => 'in_progress', 'sort' => 'updated_at', 'dir' => 'desc', 'q' => '', 'page' => 1],
+                    'active' => $scope === 'related' && $statusFilter === 'in_progress',
+                ],
+                [
+                    'label' => __('workflow_assigned'),
+                    'params' => ['scope' => 'assigned', 'status' => '', 'sort' => 'updated_at', 'dir' => 'desc', 'q' => '', 'page' => 1],
+                    'active' => $scope === 'assigned' && $statusFilter === '',
+                ],
+                [
+                    'label' => __('workflow_new'),
+                    'params' => ['scope' => 'related', 'status' => 'no_action', 'sort' => 'updated_at', 'dir' => 'desc', 'q' => '', 'page' => 1],
+                    'active' => $scope === 'related' && $statusFilter === 'no_action',
+                ],
+                [
+                    'label' => __('workflow_high_priority'),
+                    'params' => ['scope' => 'related', 'status' => '', 'sort' => 'priority', 'dir' => 'desc', 'q' => '', 'page' => 1],
+                    'active' => $scope === 'related' && $statusFilter === '' && $sortBy === 'priority' && $sortDir === 'desc',
+                ],
+                [
+                    'label' => __('workflow_closed'),
+                    'params' => ['scope' => 'related', 'status' => 'closed', 'sort' => 'updated_at', 'dir' => 'desc', 'q' => '', 'page' => 1],
+                    'active' => $scope === 'related' && $statusFilter === 'closed',
+                ],
+            ];
+            ?>
+            <div class="workflow-tabs" aria-label="<?php echo htmlspecialchars(__('quick_workflows')); ?>">
+                <span class="workflow-tabs__label"><?php echo __('quick_workflows'); ?></span>
+                <?php foreach ($workflowViews as $workflow): ?>
+                    <a class="workflow-tab <?php echo $workflow['active'] ? 'active' : ''; ?>" href="<?php echo caseQuery($workflow['params']); ?>">
+                        <?php echo htmlspecialchars($workflow['label']); ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+
             <form method="GET" action="cases.php" class="case-filter-grid">
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label" for="q"><?php echo __('search'); ?></label>
@@ -200,10 +238,10 @@ include __DIR__ . '/../includes/header.php';
                                 if (!empty($case['is_recent_update'])) $rowClasses[] = 'case-row-updated';
                                 $rowClassAttr = $rowClasses ? ' class="' . implode(' ', $rowClasses) . '"' : '';
                                 ?>
-                                <tr<?php echo $rowClassAttr; ?> onclick="window.location.href='case-edit.php?id=<?php echo (int)$case['id']; ?>'" style="cursor: pointer;">
+                                <tr<?php echo $rowClassAttr; ?>>
                                     <td>
                                         <div class="case-id-cell">
-                                            <div><?php echo htmlspecialchars($case['case_number']); ?></div>
+                                            <a class="case-row-link" href="case-edit.php?id=<?php echo (int)$case['id']; ?>"><?php echo htmlspecialchars($case['case_number']); ?></a>
                                             <?php if (!empty($case['is_new_assignment']) || !empty($case['is_recent_update'])): ?>
                                                 <div class="case-flags">
                                                     <?php if (!empty($case['is_new_assignment'])): ?><span class="case-flag case-flag--new"><?php echo __('flag_new_assignment'); ?></span><?php endif; ?>
@@ -212,11 +250,11 @@ include __DIR__ . '/../includes/header.php';
                                             <?php endif; ?>
                                         </div>
                                     </td>
-                                    <td><?php echo htmlspecialchars($case['title']); ?></td>
+                                    <td><a class="case-row-link" href="case-edit.php?id=<?php echo (int)$case['id']; ?>"><?php echo htmlspecialchars($case['title']); ?></a></td>
                                     <td><?php echo htmlspecialchars($case['creator_name']); ?></td>
                                     <td><?php echo htmlspecialchars(caseHandlerLabel($case)); ?></td>
-                                    <td><?php echo renderCaseIndicator('status', $case['status']); ?></td>
-                                    <td><?php echo renderCaseIndicator('priority', $case['priority']); ?></td>
+                                    <td><?php echo renderCaseIndicatorLabel('status', $case['status']); ?></td>
+                                    <td><?php echo renderCaseIndicatorLabel('priority', $case['priority']); ?></td>
                                     <td><?php echo date('Y-m-d H:i', strtotime($case['updated_at'] ?? $case['created_at'])); ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -232,7 +270,7 @@ include __DIR__ . '/../includes/header.php';
                                 <p class="muted"><?php echo htmlspecialchars($case['case_number']); ?> &bull; <?php echo htmlspecialchars(caseHandlerLabel($case)); ?></p>
                             </div>
                             <div class="row-right" style="flex-wrap: wrap; justify-content: flex-end;">
-                                <?php echo renderCaseIndicators($case); ?>
+                                <?php echo renderCaseIndicatorLabels($case); ?>
                             </div>
                         </a>
                     <?php endforeach; ?>

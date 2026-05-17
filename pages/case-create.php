@@ -85,23 +85,41 @@ include __DIR__ . '/../includes/header.php';
             <form method="POST" action="" id="caseForm">
                 <?php echo csrfField(); ?>
                 <section class="case-section">
-                    <h2><?php echo __('case_member_section'); ?></h2>
-                    <div class="form-group">
-                        <label class="form-label" for="member_lookup"><?php echo __('member_lookup'); ?></label>
-                        <div class="flex gap-1">
-                            <input type="number" id="member_lookup" name="member_lookup" class="form-input"
-                                   placeholder="12345" value="<?php echo htmlspecialchars($_POST['member_lookup'] ?? ''); ?>" style="flex: 1;">
-                            <button type="button" id="fetchMemberBtn" class="btn btn-secondary btn-sm"><?php echo __('fetch_member'); ?></button>
+                    <div class="section-header">
+                        <div>
+                            <h2><?php echo __('case_member_section'); ?></h2>
+                            <p class="muted"><?php echo __('member_lookup_hint'); ?></p>
                         </div>
-                        <p class="muted" style="margin-top: 0.35rem;"><?php echo __('member_context_hint'); ?></p>
                     </div>
 
-                    <div class="form-group">
-                        <div class="flex-between" style="align-items: center; gap: 0.5rem;">
-                            <label class="form-label" for="member_data"><?php echo __('member_data'); ?></label>
-                            <button type="button" class="btn btn-secondary btn-sm" id="memberPickerCreate"><?php echo __('fetch_member'); ?></button>
+                    <div class="member-linker">
+                        <div class="member-linker__search">
+                            <label class="form-label" for="member_lookup"><?php echo __('member_search_input'); ?></label>
+                            <div class="flex gap-1 member-linker__search-row">
+                                <input type="search" id="member_lookup" name="member_lookup" class="form-input"
+                                       placeholder="<?php echo htmlspecialchars(__('member_search_placeholder')); ?>"
+                                       value="<?php echo htmlspecialchars($_POST['member_lookup'] ?? ''); ?>"
+                                       autocomplete="off">
+                                <button type="button" id="memberSearchBtn" class="btn btn-secondary"><?php echo __('search'); ?></button>
+                            </div>
+                            <div id="memberSearchResults" class="member-linker__results" aria-live="polite">
+                                <p class="muted"><?php echo __('member_search_min_chars'); ?></p>
+                            </div>
                         </div>
-                        <textarea id="member_data" name="member_data" class="form-textarea" rows="3" placeholder="<?php echo __('member_data'); ?>..." spellcheck="false"><?php echo htmlspecialchars($_POST['member_data'] ?? ''); ?></textarea>
+
+                        <div id="selectedMemberPanel" class="member-linker__selected <?php echo empty($_POST['member_data'] ?? '') ? 'is-empty' : ''; ?>">
+                            <p class="eyebrow"><?php echo __('linked_member'); ?></p>
+                            <div id="selectedMemberSummary" class="member-linker__summary">
+                                <?php if (!empty($_POST['member_data'])): ?>
+                                    <pre><?php echo htmlspecialchars($_POST['member_data']); ?></pre>
+                                <?php else: ?>
+                                    <p class="muted"><?php echo __('no_data'); ?></p>
+                                <?php endif; ?>
+                            </div>
+                            <p class="muted"><?php echo __('member_selected_hint'); ?></p>
+                            <label class="form-label" for="member_data"><?php echo __('edit_member_snapshot'); ?></label>
+                            <textarea id="member_data" name="member_data" class="form-textarea" rows="5" placeholder="<?php echo __('member_data'); ?>..." spellcheck="false"><?php echo htmlspecialchars($_POST['member_data'] ?? ''); ?></textarea>
+                        </div>
                     </div>
                 </section>
 
@@ -192,17 +210,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('caseForm');
     const memberField = document.getElementById('member_data');
     const memberLookup = document.getElementById('member_lookup');
+    const memberSearchBtn = document.getElementById('memberSearchBtn');
+    const memberSearchResults = document.getElementById('memberSearchResults');
+    const selectedMemberPanel = document.getElementById('selectedMemberPanel');
+    const selectedMemberSummary = document.getElementById('selectedMemberSummary');
     const caseDataField = document.getElementById('case_data');
     const handlerSelect = document.getElementById('assigned_to');
     const handlerHidden = document.getElementById('handler');
-    const fetchBtn = document.getElementById('fetchMemberBtn');
     const recipientInput = document.getElementById('recipient');
-
-    const insertAtCaret = (el, text) => {
-        if (window.insertTextIntoField) {
-            window.insertTextIntoField(el, text);
-        }
-    };
 
     const handlerLabels = () => {
         if (!handlerSelect) return [];
@@ -236,29 +251,93 @@ document.addEventListener('DOMContentLoaded', () => {
             .join('\n');
     };
 
-    if (fetchBtn) {
-        fetchBtn.addEventListener('click', async () => {
-            const id = memberLookup.value;
-            if (!id) return;
-            fetchBtn.disabled = true;
-            fetchBtn.textContent = '...';
-            try {
-                const res = await fetch(`member-fetch.php?id=${encodeURIComponent(id)}`);
-                const data = await res.json();
-                if (data.success && data.member) {
-                    const text = formatMemberText(data.member);
-                    insertAtCaret(memberField, text || JSON.stringify(data.member, null, 2));
-                } else {
-                    alert(data.error || 'Member not found');
-                }
-            } catch (err) {
-                alert('Could not fetch member data');
-            } finally {
-                fetchBtn.disabled = false;
-                fetchBtn.textContent = '<?php echo __('fetch_member'); ?>';
-            }
+    const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    }[char]));
+
+    const renderMemberSummary = (member) => {
+        const rows = [
+            ['<?php echo __('full_name'); ?>', member.namn],
+            ['<?php echo __('member_lookup'); ?>', member.medlnr],
+            ['<?php echo __('organization'); ?>', member.forening],
+            ['<?php echo __('position'); ?>', member.befattning],
+            ['<?php echo __('workplace'); ?>', member.arbetsplats],
+        ].filter(([, value]) => value && String(value).trim() !== '');
+
+        selectedMemberSummary.innerHTML = rows.map(([label, value]) => `
+            <div class="member-summary-row">
+                <span>${label}</span>
+                <strong>${escapeHtml(value)}</strong>
+            </div>
+        `).join('');
+    };
+
+    const selectMember = (member) => {
+        const text = formatMemberText(member);
+        memberLookup.value = member.medlnr || member.id || memberLookup.value;
+        memberField.value = text || JSON.stringify(member, null, 2);
+        selectedMemberPanel.classList.remove('is-empty');
+        renderMemberSummary(member);
+        const title = document.getElementById('title');
+        if (title && !title.value.trim()) {
+            title.focus();
+        }
+    };
+
+    const renderMemberResults = (members) => {
+        memberSearchResults.innerHTML = '';
+        if (!members || members.length === 0) {
+            memberSearchResults.innerHTML = '<p class="muted"><?php echo __('no_members_found'); ?></p>';
+            return;
+        }
+
+        members.forEach((member) => {
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'member-result';
+            row.innerHTML = `
+                <span>
+                    <strong>${escapeHtml(member.namn)}</strong>
+                    <small>${escapeHtml(member.medlnr)}${member.arbetsplats ? ' · ' + escapeHtml(member.arbetsplats) : ''}</small>
+                </span>
+                <span class="btn btn-secondary btn-sm"><?php echo __('select_member'); ?></span>
+            `;
+            row.addEventListener('click', () => selectMember(member));
+            memberSearchResults.appendChild(row);
         });
-    }
+    };
+
+    const searchMembers = async () => {
+        const q = memberLookup.value.trim();
+        if (q.length < 2) {
+            memberSearchResults.innerHTML = '<p class="muted"><?php echo __('member_search_min_chars'); ?></p>';
+            return;
+        }
+
+        memberSearchBtn.disabled = true;
+        memberSearchResults.innerHTML = '<p class="muted"><?php echo __('searching'); ?></p>';
+        try {
+            const res = await fetch(`member-search.php?q=${encodeURIComponent(q)}`);
+            const data = await res.json();
+            renderMemberResults(data.success ? data.results : []);
+        } catch (err) {
+            memberSearchResults.innerHTML = '<p class="muted"><?php echo __('error_general'); ?></p>';
+        } finally {
+            memberSearchBtn.disabled = false;
+        }
+    };
+
+    memberSearchBtn.addEventListener('click', searchMembers);
+    memberLookup.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            searchMembers();
+        }
+    });
 
     form.addEventListener('submit', () => {
         if (window.tinymce) {
@@ -283,12 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         caseDataField.value = JSON.stringify(payload);
-    });
-
-    window.addEventListener('load', () => {
-        if (window.initMemberPicker) {
-            window.initMemberPicker('#memberPickerCreate');
-        }
     });
 });
 </script>

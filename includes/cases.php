@@ -367,10 +367,36 @@ function renderCaseIndicator(string $type, string $value): string {
     return '<span class="case-icon case-icon--' . $typeClass . ' case-icon--' . $typeClass . '-' . $valueClass . '" title="' . $label . '" aria-label="' . $label . '" role="img">' . $icon . '</span>';
 }
 
+function renderCaseIndicatorLabel(string $type, string $value): string {
+    if ($type === 'status') {
+        $value = normalizeStatusValue($value);
+        $label = function_exists('__') ? __('status_' . $value) : $value;
+    } elseif ($type === 'priority') {
+        $value = normalizePriorityValue($value);
+        $label = function_exists('__') ? __('priority_' . $value) : $value;
+    } else {
+        $label = $value;
+    }
+
+    return '<span class="case-indicator-label">' .
+        renderCaseIndicator($type, $value) .
+        '<span>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</span>' .
+        '</span>';
+}
+
 function renderCaseIndicators(array $case): string {
     $status = (string)($case['status'] ?? 'in_progress');
     $priority = (string)($case['priority'] ?? 'medium');
     return '<span class="case-indicators">' . renderCaseIndicator('status', $status) . renderCaseIndicator('priority', $priority) . '</span>';
+}
+
+function renderCaseIndicatorLabels(array $case): string {
+    $status = (string)($case['status'] ?? 'in_progress');
+    $priority = (string)($case['priority'] ?? 'medium');
+    return '<span class="case-indicators case-indicators--labels">' .
+        renderCaseIndicatorLabel('status', $status) .
+        renderCaseIndicatorLabel('priority', $priority) .
+        '</span>';
 }
 
 function normalizeStatusValue($value, $fallback = 'in_progress') {

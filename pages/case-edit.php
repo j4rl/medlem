@@ -176,6 +176,19 @@ include __DIR__ . '/../includes/header.php';
                     </div>
                 </section>
 
+                <section class="case-section case-section--quick-note">
+                    <h2><?php echo __('case_note_section'); ?></h2>
+                    <form method="POST" action="">
+                        <?php echo csrfField(); ?>
+                        <input type="hidden" name="action" value="add_note">
+                        <div class="form-group">
+                            <label class="form-label" for="case_note"><?php echo __('add_note'); ?></label>
+                            <textarea id="case_note" name="case_note" class="form-textarea tall" data-rich-text="true" placeholder="<?php echo htmlspecialchars(__('case_note_placeholder')); ?>"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><?php echo __('add_note'); ?></button>
+                    </form>
+                </section>
+
                 <section class="case-section">
                     <div class="section-header">
                         <h2><?php echo __('case_history_section'); ?></h2>
@@ -194,19 +207,6 @@ include __DIR__ . '/../includes/header.php';
                             <p class="muted"><?php echo __('no_cases'); ?></p>
                         <?php endif; ?>
                     </div>
-                </section>
-
-                <section class="case-section">
-                    <h2><?php echo __('case_note_section'); ?></h2>
-                    <form method="POST" action="">
-                        <?php echo csrfField(); ?>
-                        <input type="hidden" name="action" value="add_note">
-                        <div class="form-group">
-                            <label class="form-label" for="case_note"><?php echo __('add_note'); ?></label>
-                            <textarea id="case_note" name="case_note" class="form-textarea tall" data-rich-text="true" placeholder="<?php echo htmlspecialchars(__('case_note_placeholder')); ?>"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary"><?php echo __('add_note'); ?></button>
-                    </form>
                 </section>
             </div>
 
