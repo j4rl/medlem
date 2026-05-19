@@ -30,6 +30,23 @@ Tack för att du vill bidra till Medlem! / Thank you for wanting to contribute t
 - Testa all ny funktionalitet / Test all new functionality
 - Kör `php -l <fil>` på berörda PHP-filer / Run `php -l <file>` on touched PHP files
 - Uppdatera dokumentation och översättningar när flöden ändras / Update docs and translations when flows change
+- Håll ändringar av vendorfiler, t.ex. `tinymce/`, separata från applikationsändringar / Keep vendor-file changes separate from application changes
+
+## Lokal utveckling / Local Development
+
+- Kopiera `config/database.example.php` till `config/database.php` eller använd `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`
+- Kopiera vid behov `config/secrets.local.example.php` till `config/secrets.local.php`; committa aldrig lokala hemligheter
+- Sätt `DATA_ENCRYPTION_KEY` innan du testar medlemsimport eller ärendesparande
+- `install.php` är låst som standard; sätt endast `ALLOW_INSTALL=1` temporärt för installationskontroll
+
+## Testlista / Test Checklist
+
+- Kör `php -l` på ändrade PHP-filer
+- Testa login/logout och CSRF-skyddade POST-flöden som berörs
+- Vid ändringar i ärenden: testa skapa, redigera, flera handläggare, kommentarer och behörighet till direktlänkar/API
+- Vid ändringar i medlemsimport: testa CSV med både semikolon och komma samt rubriker med svenska tecken
+- Vid ändringar i adminflöden: testa både standardanvändare och admin (`userlevel` 1000+)
+- Vid ändringar i UI/tema: testa ljust/mörkt läge och minst en mobil viewport
 
 ## Säkerhet / Security
 
@@ -37,6 +54,9 @@ Tack för att du vill bidra till Medlem! / Thank you for wanting to contribute t
 - Escapea all output med `htmlspecialchars()` / Escape all output with `htmlspecialchars()`
 - Hasha lösenord med `password_hash()` / Hash passwords with `password_hash()`
 - Validera och sanitera all user input / Validate and sanitize all user input
+- Använd `csrfField()`/`requireCsrfToken()` för POST och state-changing API / Use CSRF helpers for POST and state-changing API
+- Lagra aldrig återanvändbara nycklar eller lösenord i repositoryt / Never store reusable keys or passwords in the repository
+- Bevara serversidad sanering för rich text / Preserve server-side sanitization for rich text
 
 ## Bug-rapporter / Bug Reports
 

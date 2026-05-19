@@ -10,6 +10,7 @@ Use this checklist when deploying the Medlem system to production.
 - [ ] Apache or Nginx web server configured
 - [ ] mod_rewrite enabled (Apache) or equivalent (Nginx)
 - [ ] SSL certificate installed (recommended)
+- [ ] PHP extensions enabled: `mysqli`, `openssl`, `dom`; `mbstring` and `iconv` recommended
 
 ### File Preparation
 - [ ] Clone or download the repository
@@ -19,7 +20,8 @@ Use this checklist when deploying the Medlem system to production.
   chmod 644 config/database.php
   ```
 - [ ] Copy `config/database.example.php` to `config/database.php`
-- [ ] Update database credentials in `config/database.php`
+- [ ] Update database credentials in `config/database.php` or set `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`
+- [ ] If using local file secrets, copy `config/secrets.local.example.php` to `config/secrets.local.php` and keep it out of version control
 
 ### Database Setup
 - [ ] Create MySQL database
@@ -42,20 +44,25 @@ Use this checklist when deploying the Medlem system to production.
 - [ ] Update `DB_USER` in `config/database.php`
 - [ ] Update `DB_PASS` in `config/database.php`
 - [ ] Update `DB_NAME` in `config/database.php`
-- [ ] Test database connection with a temporary local/CLI check. `/install.php` is disabled unless explicitly unlocked.
+- [ ] Test database connection with a temporary local/CLI check. `/install.php` is disabled unless `ALLOW_INSTALL=1`.
 
 ### Encryption Configuration
-- [ ] Set `DATA_ENCRYPTION_KEY` (32-byte raw/hex/base64) for member data encryption
+- [ ] Set `DATA_ENCRYPTION_KEY` (32-byte raw/hex/base64) for member and case data encryption
 - [ ] Confirm OpenSSL AES-256-GCM is available on the server
 - [ ] Verify member import works after key is set
 
 ### Security Configuration
 - [ ] Create the first admin account with a unique password; no shared default admin is created
+- [ ] Give admin users `userlevel` 1000 or higher
+- [ ] Verify the first admin can access Admin -> Users, Import, and Themes
 - [ ] Review `.htaccess` security headers
 - [ ] Ensure `config/` directory is not web-accessible
+- [ ] Ensure `config/secrets.local.php` is not web-accessible and is not committed
 - [ ] Verify file upload restrictions work
 - [ ] Test SQL injection protection
 - [ ] Verify XSS protection
+- [ ] Verify CSRF protection on POST forms and API-changing requests
+- [ ] Verify `ALLOW_INSTALL` is unset or not `1` after setup
 
 ### Web Server Configuration
 
@@ -86,13 +93,21 @@ Use this checklist when deploying the Medlem system to production.
 - [ ] Verify all setup checks pass
 - [ ] Test user registration
 - [ ] Test user login with a real account
+- [ ] Test optional two-factor setup, login, and admin reset
 - [ ] Test case creation
 - [ ] Test case editing
 - [ ] Test case deletion
+- [ ] Test assigning multiple handlers to a case
+- [ ] Test case notification badges after assignment/update
+- [ ] Test rich text editing and saved rendering
 - [ ] Test commenting on cases
+- [ ] Test member CSV import and import history
+- [ ] Test user CSV import
+- [ ] Test admin user create/edit/delete/password reset
 - [ ] Test profile picture upload
 - [ ] Test theme switching (light/dark)
 - [ ] Test color scheme changes
+- [ ] Test admin theme creation/edit/delete
 - [ ] Test language switching (Swedish/English)
 - [ ] Test on mobile device
 - [ ] Test on tablet device
@@ -173,7 +188,17 @@ Use this checklist when deploying the Medlem system to production.
 **Theme/colors not saving**
 - Check browser console for JavaScript errors
 - Verify database connection
-- Check user_settings table exists
+- Check `user_settings` and `tbl_colors` tables exist
+
+**Member or case import/save fails with encryption error**
+- Verify `DATA_ENCRYPTION_KEY` is configured and decodes to 32 bytes
+- Confirm `openssl_get_cipher_methods()` includes `aes-256-gcm`
+- Check that `config/secrets.local.php` is readable if local secrets are used
+
+**Rich text editor not loading**
+- Verify `tinymce/tinymce.min.js` is present
+- Check that `BASE_URL` in `config/config.php` matches the deployed subdirectory
+- Check browser console and web server access logs for blocked TinyMCE assets
 
 ## Rollback Plan
 
@@ -196,6 +221,7 @@ If issues occur after deployment:
 - [ ] Users notified of go-live
 - [ ] Support plan in place
 - [ ] Confirm `/install.php` is not publicly accessible
+- [ ] Confirm `config/secrets.local.php` and upload directories are covered by backup policy
 
 ## Post-Go-Live
 

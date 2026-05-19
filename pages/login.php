@@ -41,7 +41,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo __('login_title'); ?> - <?php echo __('app_name'); ?></title>
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+    <script>
+        (function() {
+            if (!window.matchMedia) {
+                return;
+            }
+
+            const query = window.matchMedia('(prefers-color-scheme: dark)');
+            const applySystemTheme = function(e) {
+                document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+            };
+
+            applySystemTheme(query);
+
+            if (query.addEventListener) {
+                query.addEventListener('change', applySystemTheme);
+            } else if (query.addListener) {
+                query.addListener(applySystemTheme);
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css?v=<?php echo filemtime(__DIR__ . '/../assets/css/style.css'); ?>">
 </head>
 <body>
     <div class="auth-container">
